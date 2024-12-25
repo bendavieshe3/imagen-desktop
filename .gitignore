@@ -22,3 +22,6 @@ ENV/
 
 # macOS
 .DS_Store
+
+# other tooling
+crunch_output.txt
