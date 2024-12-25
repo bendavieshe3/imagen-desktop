@@ -5,10 +5,12 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 
+from ...api.api_handler import APIHandler  # Updated import path
+
 class ModelSelector(QWidget):
     model_changed = pyqtSignal(str)  # Emits model identifier
     
-    def __init__(self, api_handler):
+    def __init__(self, api_handler: APIHandler):
         super().__init__()
         self.api_handler = api_handler
         self._init_ui()
@@ -75,3 +77,8 @@ class ModelSelector(QWidget):
         """Get the currently selected model identifier."""
         index = self.model_combo.currentIndex()
         return self.model_combo.itemData(index) if index >= 0 else None
+    
+    def setEnabled(self, enabled: bool):
+        """Enable or disable the component."""
+        super().setEnabled(enabled)
+        self.model_combo.setEnabled(enabled)

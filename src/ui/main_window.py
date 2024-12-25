@@ -1,12 +1,15 @@
+"""Main window for the Replicate Desktop application."""
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTabWidget, QMessageBox, QStatusBar
 )
 from PyQt6.QtCore import Qt
+from pathlib import Path
+
 from .generation_form import GenerationForm
 from .gallery_view import GalleryView
 from ..models.image_generation import ImageGenerationModel
-from ..utils.api_handler import APIHandler
+from ..api.api_handler import APIHandler
 from ..utils.debug_logger import logger
 
 class MainWindow(QMainWindow):
@@ -89,8 +92,13 @@ class MainWindow(QMainWindow):
         """Handle generation completed signal."""
         logger.info(f"Generation completed: {prediction_id}")
         try:
-            # Save output files
-            saved_paths = self.api_handler.save_generation_output(prediction_id, output_files)
+            # If we receive Path objects directly, use them
+            if output_files and isinstance(output_files[0], Path):
+                saved_paths = output_files
+            else:
+                # Otherwise, treat as URLs and save them
+                saved_paths = self.api_handler.save_generation_output(prediction_id, output_files)
+            
             logger.info(f"Saved output files: {saved_paths}")
             
             # Update generation metadata
