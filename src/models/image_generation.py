@@ -1,7 +1,8 @@
+"""Manages image generation state and history."""
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Iterator
+from typing import List, Dict, Any, Optional
 import json
 import os
 from ..utils.debug_logger import logger
@@ -42,59 +43,68 @@ class ImageGenerationModel:
     """Manages image generation state and history."""
     
     def __init__(self):
-        logger.info("Initializing ImageGenerationModel")
         self.history_dir = Path.home() / '.replicate-desktop' / 'history'
         self.history_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"History directory: {self.history_dir}")
+        logger.debug(f"Initialized ImageGenerationModel at {self.history_dir}")
         self._load_history()
     
     def _load_history(self):
         """Load generation history from disk."""
         self.history: Dict[str, GenerationMetadata] = {}
+        total_entries = 0
         
-        logger.info("Loading generation history")
-        for metadata_file in self.history_dir.glob('*.json'):
-            try:
-                logger.debug(f"Loading metadata from {metadata_file}")
-                with open(metadata_file, 'r') as f:
-                    data = json.load(f)
-                    metadata = GenerationMetadata(
-                        id=data['id'],
-                        model=data['model'],
-                        prompt=data['prompt'],
-                        parameters=data['parameters'],
-                        timestamp=datetime.fromisoformat(data['timestamp']),
-                        output_paths=[Path(p) for p in data['output_paths']],
-                        status=GenerationStatus(data['status']),
-                        error=data.get('error')
-                    )
-                    self.history[metadata.id] = metadata
-            except Exception as e:
-                logger.error(f"Error loading metadata file {metadata_file}: {e}")
-                continue
-        
-        logger.info(f"Loaded {len(self.history)} history entries")
+        try:
+            for metadata_file in self.history_dir.glob('*.json'):
+                try:
+                    with open(metadata_file, 'r') as f:
+                        data = json.load(f)
+                        metadata = GenerationMetadata(
+                            id=data['id'],
+                            model=data['model'],
+                            prompt=data['prompt'],
+                            parameters=data['parameters'],
+                            timestamp=datetime.fromisoformat(data['timestamp']),
+                            output_paths=[Path(p) for p in data['output_paths']],
+                            status=GenerationStatus(data['status']),
+                            error=data.get('error')
+                        )
+                        self.history[metadata.id] = metadata
+                        total_entries += 1
+                except Exception as e:
+                    logger.error(f"Failed to load metadata from {metadata_file}: {e}")
+            
+            logger.info(f"Loaded {total_entries} history entries successfully")
+            
+        except Exception as e:
+            logger.error(f"Error loading history: {e}")
+            raise
     
     def add_generation(self, 
                       prediction_id: str,
                       model: str,
                       prompt: str,
                       parameters: Dict[str, Any],
-                      output_paths: List[Path]) -> GenerationMetadata:
+                      output_paths: List[Path],
+                      initial_status: GenerationStatus = GenerationStatus.STARTING) -> GenerationMetadata:
         """
         Add a new generation to history.
         
+        Args:
+            prediction_id: Unique identifier for the generation
+            model: Model identifier used for generation
+            prompt: Text prompt used
+            parameters: Additional generation parameters
+            output_paths: List of paths to generated images
+            initial_status: Initial status for the generation
+            
         Returns:
             GenerationMetadata: The newly created generation metadata
-        """
-        logger.info(f"Adding generation {prediction_id}")
-        logger.debug(f"Model: {model}")
-        logger.debug(f"Output paths: {output_paths}")
-        
-        try:
-            # Ensure the history directory exists
-            self.history_dir.mkdir(parents=True, exist_ok=True)
             
+        Raises:
+            ValueError: If required parameters are missing
+            OSError: If unable to save metadata to disk
+        """
+        try:
             metadata = GenerationMetadata(
                 id=prediction_id,
                 model=model,
@@ -102,40 +112,73 @@ class ImageGenerationModel:
                 parameters=parameters,
                 timestamp=datetime.now(),
                 output_paths=output_paths,
-                status=GenerationStatus.STARTING if not output_paths else GenerationStatus.COMPLETED
+                status=initial_status
             )
             
-            # Update in-memory history
             self.history[prediction_id] = metadata
-            
-            # Force save to disk
             self._save_metadata(metadata)
+            logger.debug(f"Added generation {prediction_id} with status {initial_status.value}")
             
             return metadata
             
         except Exception as e:
-            logger.error(f"Error adding generation: {e}", exc_info=True)
+            logger.error(f"Failed to add generation {prediction_id}: {e}")
             raise
     
+    def update_generation(self,
+                         prediction_id: str,
+                         output_paths: List[Path],
+                         status: GenerationStatus) -> None:
+        """
+        Update an existing generation with new paths and status.
+        
+        Args:
+            prediction_id: ID of the generation to update
+            output_paths: New output paths for the generation
+            status: New status for the generation
+        """
+        if prediction_id in self.history:
+            metadata = self.history[prediction_id]
+            metadata.output_paths = output_paths
+            metadata.status = status
+            self._save_metadata(metadata)
+            logger.debug(f"Updated generation {prediction_id} with {len(output_paths)} outputs")
+        else:
+            logger.warning(f"Attempted to update non-existent generation: {prediction_id}")
+    
+    def update_generation_status(self, prediction_id: str, status: str, error: Optional[str] = None):
+        """Update the status of a generation."""
+        if prediction_id in self.history:
+            metadata = self.history[prediction_id]
+            old_status = metadata.status
+            metadata.status = GenerationStatus(status)
+            metadata.error = error
+            self._save_metadata(metadata)
+            logger.debug(f"Updated status for {prediction_id}: {old_status.value} -> {status}")
+        else:
+            logger.warning(f"Attempted to update status for unknown generation: {prediction_id}")
+    
     def _save_metadata(self, metadata: GenerationMetadata):
-        """Save generation metadata to disk."""
+        """
+        Save generation metadata to disk.
+        
+        Args:
+            metadata: Generation metadata to save
+            
+        Raises:
+            OSError: If unable to save metadata file
+            ValueError: If metadata is invalid
+        """
         try:
-            logger.info(f"Saving metadata for {metadata.id}")
-            
-            # Ensure directory exists
-            self.history_dir.mkdir(parents=True, exist_ok=True)
-            
             metadata_path = self.history_dir / f"{metadata.id}.json"
-            logger.debug(f"Metadata path: {metadata_path}")
             
             # Convert paths to strings and ensure they exist
             output_paths = []
             for path in metadata.output_paths:
                 if isinstance(path, Path) and path.exists():
                     output_paths.append(str(path))
-                elif isinstance(path, str):
-                    if Path(path).exists():
-                        output_paths.append(path)
+                elif isinstance(path, str) and Path(path).exists():
+                    output_paths.append(path)
             
             data = {
                 'id': metadata.id,
@@ -144,36 +187,17 @@ class ImageGenerationModel:
                 'parameters': metadata.parameters,
                 'timestamp': metadata.timestamp.isoformat(),
                 'output_paths': output_paths,
-                'status': metadata.status.value if isinstance(metadata.status, GenerationStatus) else str(metadata.status),
+                'status': metadata.status.value,
                 'error': metadata.error
             }
-            
-            logger.debug(f"Writing metadata: {json.dumps(data, indent=2)}")
             
             with open(metadata_path, 'w') as f:
                 json.dump(data, f, indent=2)
                 
-            logger.info(f"Successfully saved metadata to {metadata_path}")
-            
         except Exception as e:
-            logger.error(f"Error saving metadata: {e}", exc_info=True)
-            logger.debug(f"Current directory: {os.getcwd()}")
-            logger.debug(f"History directory exists: {self.history_dir.exists()}")
-            logger.debug(f"History directory is writable: {os.access(self.history_dir, os.W_OK)}")
+            logger.error(f"Failed to save metadata for {metadata.id}: {e}")
             raise
     
-    def update_generation_status(self, prediction_id: str, status: str, error: Optional[str] = None):
-        """Update the status of a generation."""
-        logger.info(f"Updating status for {prediction_id} to {status}")
-        if prediction_id in self.history:
-            metadata = self.history[prediction_id]
-            metadata.status = GenerationStatus(status)
-            metadata.error = error
-            self._save_metadata(metadata)
-            logger.info(f"Updated status for {prediction_id}")
-        else:
-            logger.warning(f"Attempted to update status for unknown generation: {prediction_id}")
-
     def get_generation(self, prediction_id: str) -> Optional[GenerationMetadata]:
         """Get metadata for a specific generation."""
         return self.history.get(prediction_id)
@@ -181,7 +205,16 @@ class ImageGenerationModel:
     def list_generations(self, 
                         limit: Optional[int] = None,
                         status: Optional[str] = None) -> List[GenerationMetadata]:
-        """List generations, optionally filtered by status."""
+        """
+        List generations, optionally filtered by status.
+        
+        Args:
+            limit: Maximum number of generations to return
+            status: Filter by generation status
+            
+        Returns:
+            List of GenerationMetadata objects
+        """
         generations = list(self.history.values())
         
         if status:
@@ -193,16 +226,16 @@ class ImageGenerationModel:
             generations = generations[:limit]
         
         return generations
-
+    
     def clean_history(self, max_age_days: int = 30) -> int:
         """
         Remove history entries older than specified days.
         
         Args:
-            max_age_days (int): Maximum age in days to keep
+            max_age_days: Maximum age in days to keep
             
         Returns:
-            int: Number of entries removed
+            Number of entries removed
         """
         cutoff = datetime.now() - timedelta(days=max_age_days)
         removed = 0
@@ -215,17 +248,19 @@ class ImageGenerationModel:
                     del self.history[id]
                     removed += 1
                 except Exception as e:
-                    logger.error(f"Error removing old history entry {id}: {e}")
+                    logger.error(f"Failed to remove old history entry {id}: {e}")
         
+        if removed > 0:
+            logger.info(f"Cleaned {removed} old history entries")
         return removed
-
+    
     def handle_failed_generation(self, prediction_id: str, error: str) -> None:
         """
         Handle a failed generation by updating status and cleaning up.
         
         Args:
-            prediction_id (str): ID of the failed generation
-            error (str): Error message
+            prediction_id: ID of the failed generation
+            error: Error message
         """
         if prediction_id in self.history:
             metadata = self.history[prediction_id]
@@ -242,3 +277,4 @@ class ImageGenerationModel:
             
             metadata.output_paths = []
             self._save_metadata(metadata)
+            logger.info(f"Handled failed generation {prediction_id}: {error}")

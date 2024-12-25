@@ -1,86 +1,78 @@
-"""Database schema definitions."""
-import sqlite3
-from pathlib import Path
+"""SQLAlchemy models and database initialization."""
 from datetime import datetime
+from pathlib import Path
+from typing import Optional, Dict, Any
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, JSON, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
 
-SCHEMA_VERSION = 1
+Base = declarative_base()
 
-def init_db(db_path: Path) -> None:
-    """Initialize the database with required tables."""
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
+class Generation(Base):
+    """Model for image generation records."""
+    __tablename__ = 'generations'
+    
+    id = Column(String, primary_key=True)  # prediction_id
+    model = Column(String, nullable=False)
+    prompt = Column(Text, nullable=False)
+    parameters = Column(JSON, nullable=False)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    status = Column(String, nullable=False)
+    error = Column(Text)
+    
+    # Relationships
+    images = relationship("Image", back_populates="generation", cascade="all, delete-orphan")
+    tags = relationship("GenerationTag", back_populates="generation", cascade="all, delete-orphan")
 
-    # Version tracking
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS schema_version (
-            version INTEGER PRIMARY KEY
-        )
-    ''')
+class Image(Base):
+    """Model for generated images."""
+    __tablename__ = 'images'
+    
+    id = Column(Integer, primary_key=True)
+    generation_id = Column(String, ForeignKey('generations.id'), nullable=False)
+    file_path = Column(String, nullable=False)
+    width = Column(Integer)
+    height = Column(Integer)
+    format = Column(String)
+    file_size = Column(Integer)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    generation = relationship("Generation", back_populates="images")
 
-    # Generations table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS generations (
-            id TEXT PRIMARY KEY,
-            model TEXT NOT NULL,
-            prompt TEXT NOT NULL,
-            parameters TEXT NOT NULL,  -- JSON stored as text
-            timestamp DATETIME NOT NULL,
-            status TEXT NOT NULL,
-            error TEXT
-        )
-    ''')
+class Model(Base):
+    """Model for caching available Replicate models."""
+    __tablename__ = 'models'
+    
+    identifier = Column(String, primary_key=True)  # owner/name
+    name = Column(String, nullable=False)
+    owner = Column(String, nullable=False)
+    description = Column(Text)
+    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # Generated images table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            generation_id TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            width INTEGER,
-            height INTEGER,
-            format TEXT,
-            file_size INTEGER,
-            created_at DATETIME NOT NULL,
-            FOREIGN KEY (generation_id) REFERENCES generations(id)
-        )
-    ''')
+class Tag(Base):
+    """Model for image tags."""
+    __tablename__ = 'tags'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    
+    # Relationships
+    generations = relationship("GenerationTag", back_populates="tag")
 
-    # Model cache table for storing info about available models
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS models (
-            identifier TEXT PRIMARY KEY,  -- owner/name
-            name TEXT NOT NULL,
-            owner TEXT NOT NULL,
-            description TEXT,
-            last_updated DATETIME NOT NULL
-        )
-    ''')
+class GenerationTag(Base):
+    """Association table for generations and tags."""
+    __tablename__ = 'generation_tags'
+    
+    generation_id = Column(String, ForeignKey('generations.id'), primary_key=True)
+    tag_id = Column(Integer, ForeignKey('tags.id'), primary_key=True)
+    
+    # Relationships
+    generation = relationship("Generation", back_populates="tags")
+    tag = relationship("Tag", back_populates="generations")
 
-    # Tags for generations
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE
-        )
-    ''')
-
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS generation_tags (
-            generation_id TEXT NOT NULL,
-            tag_id INTEGER NOT NULL,
-            PRIMARY KEY (generation_id, tag_id),
-            FOREIGN KEY (generation_id) REFERENCES generations(id),
-            FOREIGN KEY (tag_id) REFERENCES tags(id)
-        )
-    ''')
-
-    # Create indexes
-    c.execute('CREATE INDEX IF NOT EXISTS idx_generations_timestamp ON generations(timestamp)')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_images_generation_id ON images(generation_id)')
-    c.execute('CREATE INDEX IF NOT EXISTS idx_generation_tags_tag_id ON generation_tags(tag_id)')
-
-    # Store schema version
-    c.execute('INSERT OR REPLACE INTO schema_version (version) VALUES (?)', (SCHEMA_VERSION,))
-
-    conn.commit()
-    conn.close()
+def init_db(db_path: Path) -> sessionmaker:
+    """Initialize the database and return a session factory."""
+    engine = create_engine(f'sqlite:///{db_path}')
+    Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine)

@@ -1,5 +1,14 @@
+# UI Framework
 PyQt6>=6.4.0
-replicate>=0.20.0
-Pillow>=9.3.0  # for image handling
-python-dotenv>=0.19.0  # for environment management
-requests>=2.28.0  # for API calls
+
+# API Client
+replicate>=0.22.0
+requests>=2.31.0
+
+# Database
+SQLAlchemy>=2.0.0
+alembic>=1.13.0
+
+# Utils
+python-dotenv>=1.0.0
+Pillow>=10.0.0  # For image processing
