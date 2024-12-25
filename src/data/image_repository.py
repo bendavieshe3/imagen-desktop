@@ -7,6 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from .base_repository import BaseRepository
 from .schema import Generation, Image, Model, Tag, GenerationTag
+from ..models.image_generation import GenerationStatus
 from ..utils.debug_logger import logger
 
 class ImageRepository(BaseRepository):
@@ -17,7 +18,7 @@ class ImageRepository(BaseRepository):
                       model: str,
                       prompt: str,
                       parameters: Dict[str, Any],
-                      status: str = 'starting',
+                      status: str = GenerationStatus.STARTING.value,
                       error: Optional[str] = None) -> Optional[Generation]:
         """Add a new generation record."""
         generation = Generation(

@@ -45,7 +45,7 @@ class ImageGenerationModel:
     def __init__(self):
         self.history_dir = Path.home() / '.replicate-desktop' / 'history'
         self.history_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Initialized ImageGenerationModel at {self.history_dir}")
+        logger.debug(f"Initializing ImageGenerationModel at {self.history_dir} (id: {id(self)})")
         self._load_history()
     
     def _load_history(self):
@@ -128,7 +128,7 @@ class ImageGenerationModel:
     def update_generation(self,
                          prediction_id: str,
                          output_paths: List[Path],
-                         status: GenerationStatus) -> None:
+                         status: GenerationStatus):
         """
         Update an existing generation with new paths and status.
         
@@ -207,13 +207,6 @@ class ImageGenerationModel:
                         status: Optional[str] = None) -> List[GenerationMetadata]:
         """
         List generations, optionally filtered by status.
-        
-        Args:
-            limit: Maximum number of generations to return
-            status: Filter by generation status
-            
-        Returns:
-            List of GenerationMetadata objects
         """
         generations = list(self.history.values())
         
@@ -226,55 +219,3 @@ class ImageGenerationModel:
             generations = generations[:limit]
         
         return generations
-    
-    def clean_history(self, max_age_days: int = 30) -> int:
-        """
-        Remove history entries older than specified days.
-        
-        Args:
-            max_age_days: Maximum age in days to keep
-            
-        Returns:
-            Number of entries removed
-        """
-        cutoff = datetime.now() - timedelta(days=max_age_days)
-        removed = 0
-        
-        for id, metadata in list(self.history.items()):
-            if metadata.timestamp < cutoff:
-                try:
-                    path = self.history_dir / f"{id}.json"
-                    path.unlink(missing_ok=True)
-                    del self.history[id]
-                    removed += 1
-                except Exception as e:
-                    logger.error(f"Failed to remove old history entry {id}: {e}")
-        
-        if removed > 0:
-            logger.info(f"Cleaned {removed} old history entries")
-        return removed
-    
-    def handle_failed_generation(self, prediction_id: str, error: str) -> None:
-        """
-        Handle a failed generation by updating status and cleaning up.
-        
-        Args:
-            prediction_id: ID of the failed generation
-            error: Error message
-        """
-        if prediction_id in self.history:
-            metadata = self.history[prediction_id]
-            metadata.status = GenerationStatus.FAILED
-            metadata.error = error
-            
-            # Clean up any partial output files
-            for path in metadata.output_paths:
-                try:
-                    if path.exists():
-                        path.unlink()
-                except Exception as e:
-                    logger.warning(f"Failed to clean up output file {path}: {e}")
-            
-            metadata.output_paths = []
-            self._save_metadata(metadata)
-            logger.info(f"Handled failed generation {prediction_id}: {error}")
