@@ -4,19 +4,22 @@ from PyQt6.QtWidgets import (
     QPushButton, QTabWidget, QMessageBox
 )
 from PyQt6.QtCore import pyqtSignal
+from typing import Optional
 
 from .forms.model_selector import ModelSelector
 from .forms.prompt_input import PromptInput
 from .forms.generation_params import GenerationParams
 from .forms.advanced_params import AdvancedParams
 from .forms.generation_progress import GenerationProgress
+from ..data.model_repository import ModelRepository
 
 class GenerationForm(QWidget):
     generation_requested = pyqtSignal(str, dict)  # model_id, parameters
     
-    def __init__(self, api_handler):
+    def __init__(self, api_handler, model_repository: Optional[ModelRepository] = None):
         super().__init__()
         self.api_handler = api_handler
+        self.model_repository = model_repository
         self.current_prediction_id = None
         self._init_ui()
         self._connect_signals()
@@ -32,7 +35,10 @@ class GenerationForm(QWidget):
         basic_tab = QWidget()
         basic_layout = QVBoxLayout(basic_tab)
         
-        self.model_selector = ModelSelector(self.api_handler)
+        self.model_selector = ModelSelector(
+            self.api_handler,
+            model_repository=self.model_repository
+        )
         basic_layout.addWidget(self.model_selector)
         
         self.prompt_input = PromptInput()

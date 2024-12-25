@@ -48,6 +48,7 @@ class Model(Base):
     name = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     description = Column(Text)
+    model_metadata = Column(JSON, nullable=False, default=dict)  # renamed from metadata
     last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 class Tag(Base):

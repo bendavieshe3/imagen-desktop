@@ -9,6 +9,13 @@ from ..utils.debug_logger import logger
 class ReplicateClient:
     """Base client for interacting with Replicate API."""
     
+    # List of featured text-to-image models verified working and openly available
+    # Focusing on Stability AI models which are known to be commercially usable
+    FEATURED_MODELS = [
+        "stability-ai/sdxl-turbo:d7985af5cdc8e7f9a5ea49fcb6074fccb0e35618f39778dd5476346db3c74285",  # Latest SDXL Turbo fast model
+        "stability-ai/sdxl:a00d0b7dcbb9c3fbb34ba87d2d5b46c56969c84a628bf778a7fdaec30b1b99c5",      # Latest SDXL 1.0 high quality
+    ]
+    
     def __init__(self):
         self._load_api_key()
         self._init_client()
@@ -31,41 +38,48 @@ class ReplicateClient:
         self.client = replicate.Client(api_token=self.api_key)
     
     def list_available_models(self, collection: Optional[str] = None) -> List[Dict[str, Any]]:
-        """List available models, optionally filtered by collection."""
-        models = []
-        
+        """List available text-to-image models."""
         try:
-            if collection:
-                collection_data = replicate.collections.get(collection)
-                for model in collection_data.models:
+            models = []
+            
+            # Get featured models (with specific versions)
+            for model_string in self.FEATURED_MODELS:
+                try:
+                    model_id, version = model_string.split(':')
+                    owner, name = model_id.split('/')
+                    model = replicate.models.get(model_id)
+                    description = model.description or ""
+                    
+                    # Add speed indicator and usage info
+                    if "turbo" in model_id.lower():
+                        description = "🚀 Fast generation model. " + description
+                    else:
+                        description = "✨ High quality model. " + description
+                        
                     models.append({
                         'name': model.name,
                         'owner': model.owner,
-                        'description': model.description,
-                        'identifier': f"{model.owner}/{model.name}"
+                        'description': description,
+                        'identifier': model_id,
+                        'version': version,
+                        'featured': True
                     })
-            else:
-                for page in replicate.paginate(replicate.models.list):
-                    for model in page:
-                        models.append({
-                            'name': model.name,
-                            'owner': model.owner,
-                            'description': model.description,
-                            'identifier': f"{model.owner}/{model.name}"
-                        })
+                except Exception as e:
+                    logger.error(f"Error loading featured model {model_id}: {e}")
+            
+            return models
+            
         except Exception as e:
             logger.error(f"Error loading models: {str(e)}")
-            raise
-        
-        return models
+            return []
     
     def get_model(self, model_identifier: str) -> dict:
         """Get information about a specific model."""
         if '/' not in model_identifier:
             raise ValueError("Invalid model identifier")
 
-        owner, model_name = model_identifier.split('/')
         try:
+            owner, model_name = model_identifier.split('/')
             model = replicate.models.get(owner + "/" + model_name)
             return {
                 'name': model.name,
@@ -81,7 +95,7 @@ class ReplicateClient:
     def create_prediction(self, 
                          model_identifier: str, 
                          version_id: Optional[str] = None, 
-                         **params) -> Any:  # Return type changed to Any
+                         **params) -> Any:
         """Create a new prediction."""
         try:
             model = replicate.models.get(model_identifier)
@@ -98,7 +112,7 @@ class ReplicateClient:
             logger.error(f"Failed to create prediction: {str(e)}")
             raise
     
-    def get_prediction(self, prediction_id: str) -> Any:  # Return type changed to Any
+    def get_prediction(self, prediction_id: str) -> Any:
         """Get a prediction by ID."""
         try:
             return replicate.predictions.get(prediction_id)

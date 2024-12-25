@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTabWidget, QMessageBox, QStatusBar
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from pathlib import Path
 from sqlalchemy.orm import sessionmaker
 
@@ -12,6 +12,7 @@ from .gallery_view import GalleryView
 from ..models.image_generation import ImageGenerationModel, GenerationStatus
 from ..api.api_handler import APIHandler
 from ..data.image_repository import ImageRepository
+from ..data.model_repository import ModelRepository
 from ..utils.debug_logger import logger
 
 class MainWindow(QMainWindow):
@@ -26,10 +27,14 @@ class MainWindow(QMainWindow):
         # Initialize storage mechanisms first
         self.image_model = ImageGenerationModel()  # File-based storage
         self.api_handler = APIHandler(image_model=self.image_model)
+        
         if session_factory:
-            self.image_repository = ImageRepository(session_factory)  # Database storage
+            self.image_repository = ImageRepository(session_factory)
+            self.model_repository = ModelRepository(session_factory)
+            logger.info("Database repositories initialized")
         else:
             self.image_repository = None
+            self.model_repository = None
             logger.warning("Database storage not available")
         
         # Track active generations
@@ -38,6 +43,14 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._connect_signals()
         
+        # Schedule initial model cache update
+        QTimer.singleShot(1000, self._update_model_cache)
+        
+        # Set up periodic model cache updates (every 12 hours)
+        self.cache_timer = QTimer(self)
+        self.cache_timer.timeout.connect(self._update_model_cache)
+        self.cache_timer.start(12 * 60 * 60 * 1000)  # 12 hours in milliseconds
+    
     def _init_ui(self):
         """Initialize the user interface."""
         central_widget = QWidget()
@@ -47,7 +60,10 @@ class MainWindow(QMainWindow):
         self.tab_widget = QTabWidget()
         main_layout.addWidget(self.tab_widget)
         
-        self.generation_form = GenerationForm(self.api_handler)
+        self.generation_form = GenerationForm(
+            self.api_handler,
+            model_repository=self.model_repository
+        )
         self.gallery_view = GalleryView(self.image_model)
         
         self.tab_widget.addTab(self.generation_form, "Generate")
@@ -67,6 +83,49 @@ class MainWindow(QMainWindow):
         
         # Connect generation form signals
         self.generation_form.generation_requested.connect(self._start_generation)
+    
+    def _update_model_cache(self):
+        """Update the cached model information from the API."""
+        if not self.model_repository:
+            return
+            
+        try:
+            logger.debug("Updating model cache...")
+            self.status_bar.showMessage("Updating model cache...", 3000)
+            
+            # Get models from API
+            models = self.api_handler.list_available_models()
+            
+            # Update cache
+            for model in models:
+                try:
+                    identifier = f"{model['owner']}/{model['name']}"
+                    metadata = {
+                        'collection': model.get('collection'),
+                        'latest_version': model.get('latest_version'),
+                        'version_count': model.get('version_count', 0)
+                    }
+                    
+                    self.model_repository.add_or_update_model(
+                        identifier=identifier,
+                        name=model['name'],
+                        owner=model['owner'],
+                        description=model.get('description'),
+                        metadata=metadata
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to cache model {identifier}: {e}")
+            
+            # Clean up old entries
+            self.model_repository.cleanup_old_models(days=30)
+            
+            model_count = self.model_repository.count_models()
+            logger.info(f"Model cache updated. Total models: {model_count}")
+            self.status_bar.showMessage(f"Model cache updated. {model_count} models available.", 3000)
+            
+        except Exception as e:
+            logger.error(f"Failed to update model cache: {e}")
+            self.status_bar.showMessage("Failed to update model cache", 3000)
     
     def _create_generation_record(self, prediction_id: str, model: str, params: dict):
         """Create initial generation record in both storage systems."""
@@ -90,7 +149,7 @@ class MainWindow(QMainWindow):
                     model=model,
                     prompt=params.get('prompt', ''),
                     parameters=params,
-                                            status=GenerationStatus.STARTING.value
+                    status=GenerationStatus.STARTING.value
                 )
                 logger.debug(f"Added generation {prediction_id} to database")
             except Exception as e:
@@ -131,7 +190,10 @@ class MainWindow(QMainWindow):
         # Update database if available
         if self.image_repository:
             try:
-                self.image_repository.update_generation_status(prediction_id, GenerationStatus.IN_PROGRESS.value)
+                self.image_repository.update_generation_status(
+                    prediction_id, 
+                    GenerationStatus.IN_PROGRESS.value
+                )
             except Exception as e:
                 logger.error(f"Failed to update generation status in database: {e}")
     
@@ -208,4 +270,5 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Handle application close."""
         logger.debug("Application closing")
+        self.cache_timer.stop()
         event.accept()

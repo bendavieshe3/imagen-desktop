@@ -36,7 +36,6 @@ class APIHandler(QObject):
     
     def _connect_signals(self):
         """Connect internal signals."""
-        # Don't connect generation_started directly anymore
         self.prediction_manager.generation_progress.connect(self.generation_progress)
         self.prediction_manager.generation_completed.connect(self._handle_generation_completed)
         self.prediction_manager.generation_failed.connect(self._handle_generation_failed)
