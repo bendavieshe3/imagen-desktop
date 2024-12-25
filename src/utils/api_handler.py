@@ -92,7 +92,7 @@ class APIHandler(QObject):
         try:
             if '/' not in model_identifier:
                 raise ValueError("Invalid model identifier")
-            
+
             owner, model_name = model_identifier.split('/')
             model = replicate.models.get(owner + "/" + model_name)
             prediction = replicate.predictions.create(

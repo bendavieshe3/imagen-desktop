@@ -1,3 +1,4 @@
+"""Full-size image viewer with navigation."""
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QWidget, QScrollArea, QFileDialog
