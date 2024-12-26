@@ -9,11 +9,21 @@ from ..utils.debug_logger import logger
 class ReplicateClient:
     """Base client for interacting with Replicate API."""
     
-    # List of featured text-to-image models verified working and openly available
-    # Focusing on Stability AI models which are known to be commercially usable
+    # List of featured text-to-image models (verified Dec 2024)
     FEATURED_MODELS = [
-        "stability-ai/sdxl-turbo:d7985af5cdc8e7f9a5ea49fcb6074fccb0e35618f39778dd5476346db3c74285",  # Latest SDXL Turbo fast model
-        "stability-ai/sdxl:a00d0b7dcbb9c3fbb34ba87d2d5b46c56969c84a628bf778a7fdaec30b1b99c5",      # Latest SDXL 1.0 high quality
+        # Fast Generation Models
+        f"bytedance/sdxl-lightning-4step:5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637",
+        f"luma/photon-flash:81b0e3ad4acf49cb47143ea63cce47f94cb0bdbecc13d31910654b6282e29ea1",
+        f"lucataco/ssd-1b:b19e3639452c59ce8295b82aba70a231404cb062f2eb580ea894b31e8ce5bbb6",
+        
+        # High Quality Models
+        f"stability-ai/stable-diffusion-3.5-large:e6c4657fe1b3f078fb26d68a1413bc8013e2b085504dd84a33e26e16fb95a593",
+        f"luma/photon:fe142c037cf359764f2058c3a42ef0dc750d908311d02868cbc7769fe800b648",
+        f"black-forest-labs/flux-pro:a57823497a8beebcd222c20dd78af15a90c0415c36a5bfc88ee763c67155310e",
+        
+        # Specialized Models
+        f"ideogram-ai/ideogram-v2:d07f7f3ad03f2ec100edeaa91e26ac731d7d00ec369e6a475b80c04bd1101d5d",  # Good text rendering
+        f"playgroundai/playground-v2.5-1024px-aesthetic:a45f82a1382bed5c7aeb861dac7c7d191b0fdf74d8d57c4a0e6ed7d4d0bf7d24"  # Aesthetic focused
     ]
     
     def __init__(self):
@@ -41,6 +51,7 @@ class ReplicateClient:
         """List available text-to-image models."""
         try:
             models = []
+            failed_models = []
             
             # Get featured models (with specific versions)
             for model_string in self.FEATURED_MODELS:
@@ -48,14 +59,20 @@ class ReplicateClient:
                     model_id, version = model_string.split(':')
                     owner, name = model_id.split('/')
                     model = replicate.models.get(model_id)
-                    description = model.description or ""
                     
-                    # Add speed indicator and usage info
-                    if "turbo" in model_id.lower():
-                        description = "🚀 Fast generation model. " + description
-                    else:
-                        description = "✨ High quality model. " + description
-                        
+                    # Determine model category for description
+                    prefix = ""
+                    if any(x in model_id.lower() for x in ['flash', 'lightning', 'turbo', 'ssd']):
+                        prefix = "🚀 Fast generation model. "
+                    elif any(x in model_id.lower() for x in ['pro', 'large', 'photon']):
+                        prefix = "✨ High quality model. "
+                    elif 'ideogram' in model_id.lower():
+                        prefix = "📝 Excellent text rendering. "
+                    elif 'aesthetic' in model_id.lower():
+                        prefix = "🎨 Aesthetic focused. "
+                    
+                    description = prefix + (model.description or "")
+                    
                     models.append({
                         'name': model.name,
                         'owner': model.owner,
@@ -65,7 +82,11 @@ class ReplicateClient:
                         'featured': True
                     })
                 except Exception as e:
+                    failed_models.append(model_id)
                     logger.error(f"Error loading featured model {model_id}: {e}")
+            
+            if failed_models:
+                logger.warning(f"Failed to load models: {', '.join(failed_models)}")
             
             return models
             
