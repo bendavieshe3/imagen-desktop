@@ -1,9 +1,10 @@
-"""Prompt input component with examples."""
+"""Prompt input component."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTextEdit,
-    QLabel, QPushButton, QGroupBox
+    QLabel
 )
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QTextOption
 
 class PromptInput(QWidget):
     prompt_changed = pyqtSignal(str)
@@ -14,42 +15,22 @@ class PromptInput(QWidget):
     
     def _init_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        group = QGroupBox("Prompt")
-        prompt_layout = QVBoxLayout()
-        
-        # Example prompts section
-        examples_label = QLabel("Example prompts:")
-        examples_label.setStyleSheet("color: gray;")
-        prompt_layout.addWidget(examples_label)
-        
-        example_prompts = [
-            "a photorealistic landscape of a mountain lake at sunset",
-            "a cyberpunk city street at night with neon signs",
-            "an oil painting of a cat wearing a renaissance costume"
-        ]
-        
-        for prompt in example_prompts:
-            btn = QPushButton(prompt)
-            btn.setStyleSheet("text-align: left;")
-            btn.clicked.connect(lambda checked, p=prompt: self._use_example(p))
-            prompt_layout.addWidget(btn)
+        # Prompt label
+        prompt_label = QLabel("Prompt:")
+        layout.addWidget(prompt_label)
         
         # Main prompt input
         self.prompt_input = QTextEdit()
-        self.prompt_input.setMinimumHeight(100)
+        self.prompt_input.setMinimumHeight(80)
         self.prompt_input.setPlaceholderText("Enter your prompt here...")
+        self.prompt_input.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.prompt_input.setWordWrapMode(QTextOption.WrapMode.WordWrap)
         self.prompt_input.textChanged.connect(
             lambda: self.prompt_changed.emit(self.get_prompt())
         )
-        prompt_layout.addWidget(self.prompt_input)
-        
-        group.setLayout(prompt_layout)
-        layout.addWidget(group)
-    
-    def _use_example(self, prompt: str):
-        """Set an example prompt as the current prompt."""
-        self.prompt_input.setPlainText(prompt)
+        layout.addWidget(self.prompt_input)
     
     def get_prompt(self) -> str:
         """Get the current prompt text."""
@@ -62,3 +43,8 @@ class PromptInput(QWidget):
     def clear(self):
         """Clear the prompt input."""
         self.prompt_input.clear()
+    
+    def setEnabled(self, enabled: bool):
+        """Enable or disable the input."""
+        super().setEnabled(enabled)
+        self.prompt_input.setEnabled(enabled)

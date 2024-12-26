@@ -1,14 +1,32 @@
 """Sidebar containing generation form elements."""
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QTabWidget,
-    QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QFrame, QLabel,
+    QScrollArea
 )
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 
 from .model_selector import ModelSelector
 from .prompt_input import PromptInput
-from .generation_params import GenerationParams
-from .advanced_params import AdvancedParams
+from .parameter_inputs import ParameterInputs
+
+class SectionTitle(QFrame):
+    """Section title with horizontal line."""
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 12, 0, 4)
+        layout.setSpacing(4)
+        
+        # Title label
+        label = QLabel(text)
+        label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(label)
+        
+        # Horizontal line
+        line = QFrame()
+        line.setFrameStyle(QFrame.Shape.HLine | QFrame.Shadow.Sunken)
+        layout.addWidget(line)
 
 class GenerationSidebar(QWidget):
     """Sidebar containing generation controls."""
@@ -27,35 +45,54 @@ class GenerationSidebar(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Model selection
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFrameStyle(QFrame.Shape.NoFrame)
+        
+        # Create content widget
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Model selection section
+        content_layout.addWidget(SectionTitle("Model Selection"))
+        
+        # Model selector and manager button
         self.model_selector = ModelSelector(
             self.api_handler,
             model_repository=self.model_repository
         )
-        layout.addWidget(self.model_selector)
+        content_layout.addWidget(self.model_selector)
         
-        # Prompt input
+        model_manager_btn = QPushButton("Manage Models...")
+        model_manager_btn.clicked.connect(self.model_selector._show_model_manager)
+        content_layout.addWidget(model_manager_btn)
+        
+        # Prompt input section
+        content_layout.addWidget(SectionTitle("Prompt"))
         self.prompt_input = PromptInput()
-        layout.addWidget(self.prompt_input)
+        content_layout.addWidget(self.prompt_input)
         
-        # Parameters tabs
-        tabs = QTabWidget()
+        # Parameters section
+        content_layout.addWidget(SectionTitle("Parameters"))
         
-        self.generation_params = GenerationParams()
-        tabs.addTab(self.generation_params, "Basic")
+        # All parameters in one section
+        self.parameters = ParameterInputs()
+        content_layout.addWidget(self.parameters)
         
-        self.advanced_params = AdvancedParams()
-        tabs.addTab(self.advanced_params, "Advanced")
+        content_layout.addStretch()
         
-        layout.addWidget(tabs)
+        # Add scrollable content
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
         
-        # Generate button
+        # Generate button (outside scroll area)
         self.generate_button = QPushButton("Generate")
         self.generate_button.setMinimumHeight(40)
         self.generate_button.clicked.connect(self._on_generate)
         layout.addWidget(self.generate_button)
-        
-        layout.addStretch()
     
     def _connect_signals(self):
         """Connect internal signals."""
@@ -67,33 +104,31 @@ class GenerationSidebar(QWidget):
         if not model_id:
             return
         
-        # Get parameters from components
-        basic_params = self.generation_params.get_parameters()
-        advanced_params = self.advanced_params.get_parameters()
+        # Get parameters
+        params = self.parameters.get_parameters()
         
-        # Combine parameters
-        params = {
+        # Build parameter dictionary
+        generation_params = {
             'prompt': self.prompt_input.get_prompt(),
-            'num_outputs': basic_params.num_images,
-            'width': basic_params.width,
-            'height': basic_params.height,
+            'num_outputs': params.num_images,
+            'width': params.width,
+            'height': params.height,
             'disable_safety_checker': True
         }
         
-        # Add advanced parameters
-        if advanced_params.seed is not None:
-            params['seed'] = advanced_params.seed
-        if advanced_params.guidance_scale != 7.5:
-            params['guidance_scale'] = advanced_params.guidance_scale
-        if advanced_params.num_inference_steps != 50:
-            params['num_inference_steps'] = advanced_params.num_inference_steps
+        # Add optional parameters
+        if params.seed is not None:
+            generation_params['seed'] = params.seed
+        if params.guidance_scale != 7.5:
+            generation_params['guidance_scale'] = params.guidance_scale
+        if params.num_inference_steps != 50:
+            generation_params['num_inference_steps'] = params.num_inference_steps
         
-        self.generation_requested.emit(model_id, params)
+        self.generation_requested.emit(model_id, generation_params)
     
     def set_enabled(self, enabled: bool):
         """Enable or disable all form elements."""
         self.model_selector.setEnabled(enabled)
         self.prompt_input.setEnabled(enabled)
-        self.generation_params.set_enabled(enabled)
-        self.advanced_params.set_enabled(enabled)
+        self.parameters.set_enabled(enabled)
         self.generate_button.setEnabled(enabled)

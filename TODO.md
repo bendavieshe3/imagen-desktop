@@ -19,15 +19,15 @@
 
 ## Generation 
 
-- Organise form into a sidebar
+- Organise form into a sidebar (DONE)
 - fix size specification not working
 - respect model defaults
-- Show the resulting generation in the rest of the area
-- Add a thumbnail strip of the generated images in the current session with the same context controls as per gallery
+- Show the resulting generation in the rest of the area (DONE)
+- Add a thumbnail strip of the generated images in the current session with the same context controls as per gallery (DONE)
 
 ### Model Selector
 
-- Add FLUX Schnell to the default list
+- Add FLUX Schnell to the default list (DONE)
 
 ## Gallery
 

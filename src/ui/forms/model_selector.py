@@ -1,7 +1,7 @@
 """Model selection component with search and filtering."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, 
-    QComboBox, QLabel, QGroupBox, QPushButton
+    QComboBox, QLabel, QGroupBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from typing import Optional, List, Dict
@@ -27,41 +27,23 @@ class ModelSelector(QWidget):
     def _init_ui(self):
         """Initialize the user interface."""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        group = QGroupBox("Model Selection")
-        main_layout = QVBoxLayout()
-        
-        # Model selection
-        form_layout = QFormLayout()
-        
-        combo_layout = QHBoxLayout()
+        # Model dropdown
         self.model_combo = QComboBox()
         self.model_combo.setMinimumWidth(300)
         self.model_combo.currentIndexChanged.connect(self._on_model_changed)
-        combo_layout.addWidget(self.model_combo)
-        
-        # Manage models button
-        self.manage_button = QPushButton("Manage Models...")
-        self.manage_button.clicked.connect(self._show_model_manager)
-        combo_layout.addWidget(self.manage_button)
-        
-        form_layout.addRow("Model:", combo_layout)
+        layout.addWidget(self.model_combo)
         
         # Model description
         self.description_label = QLabel()
         self.description_label.setWordWrap(True)
         self.description_label.setStyleSheet("color: gray;")
-        form_layout.addRow(self.description_label)
-        
-        main_layout.addLayout(form_layout)
-        
-        group.setLayout(main_layout)
-        layout.addWidget(group)
+        layout.addWidget(self.description_label)
     
     def _load_default_models(self) -> List[Dict]:
         """Load the default models list from JSON."""
         try:
-            # First try to load from resources directory
             paths = [
                 Path(__file__).parent.parent.parent.parent / 'resources' / 'models' / 'default_models.json',
                 Path.home() / '.replicate-desktop' / 'default_models.json'
@@ -71,9 +53,10 @@ class ModelSelector(QWidget):
                 if path.exists():
                     with open(path, 'r') as f:
                         data = json.load(f)
+                        logger.debug(f"Loaded default models from {path}")
                         return data.get('models', [])
             
-            logger.warning("Default models file not found")
+            logger.warning("No default models file found")
             return []
             
         except Exception as e:
@@ -205,4 +188,3 @@ class ModelSelector(QWidget):
         """Enable or disable the component."""
         super().setEnabled(enabled)
         self.model_combo.setEnabled(enabled)
-        self.manage_button.setEnabled(enabled)

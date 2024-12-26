@@ -145,8 +145,8 @@ class MainWindowPresenter:
                 except Exception as e:
                     logger.error(f"Failed to add images to database: {e}")
             
-            # Update view
-            self.view.on_generation_complete(prediction_id, saved_paths)
+            # Update view status only, don't switch tabs
+            self.view.show_status(f"Generation completed: {prediction_id}")
             logger.debug(f"Generation {prediction_id} completed successfully")
             
         except Exception as e:
@@ -180,5 +180,5 @@ class MainWindowPresenter:
                 logger.error(f"Failed to update generation status in database: {e}")
         
         # Update view
-        self.view.on_generation_failed(prediction_id, error)
+        self.view.show_status(f"Generation failed: {error}")
         self.active_generations.remove(prediction_id)
