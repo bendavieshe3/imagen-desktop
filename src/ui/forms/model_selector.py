@@ -1,59 +1,17 @@
 """Model selection component with search and filtering."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, 
-    QComboBox, QLabel, QGroupBox,
-    QLineEdit
+    QComboBox, QLabel, QGroupBox, QPushButton
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QThread
+from PyQt6.QtCore import pyqtSignal, Qt
 from typing import Optional, List, Dict
 import json
+from pathlib import Path
 
 from ...api.api_handler import APIHandler
 from ...data.model_repository import ModelRepository
+from ..dialogs.model_manager import ModelManager
 from ...utils.debug_logger import logger
-
-# Default models that load instantly
-INITIAL_MODELS = [
-    {
-        'name': 'SDXL Lightning (Fast)',
-        'owner': 'bytedance',
-        'description': '🚀 Fast generation model. SDXL-Lightning: a fast text-to-image model that makes high-quality images in 4 steps',
-        'identifier': 'bytedance/sdxl-lightning-4step',
-        'version': '5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637',
-        'featured': True
-    },
-    {
-        'name': 'SD 3.5 Large (Quality)',
-        'owner': 'stability-ai',
-        'description': '✨ High quality model. A text-to-image model that generates high-resolution images with fine details.',
-        'identifier': 'stability-ai/stable-diffusion-3.5-large',
-        'version': 'e6c4657fe1b3f078fb26d68a1413bc8013e2b085504dd84a33e26e16fb95a593',
-        'featured': True
-    }
-]
-
-class ModelLoaderThread(QThread):
-    """Background thread for loading models."""
-    models_loaded = pyqtSignal(list)  # Emits list of model data
-    
-    def __init__(self, api_handler: APIHandler, model_repository: Optional[ModelRepository] = None):
-        super().__init__()
-        self.api_handler = api_handler
-        self.model_repository = model_repository
-    
-    def run(self):
-        try:
-            # Get API models
-            models = self.api_handler.list_available_models()
-            
-            # Filter out any models already in initial list
-            initial_ids = {m['identifier'] for m in INITIAL_MODELS}
-            models = [m for m in models if m['identifier'] not in initial_ids]
-            
-            self.models_loaded.emit(models)
-        except Exception as e:
-            logger.error(f"Error loading models: {e}")
-            self.models_loaded.emit([])
 
 class ModelSelector(QWidget):
     model_changed = pyqtSignal(str, str)  # Emits (model_id, version_id)
@@ -63,14 +21,8 @@ class ModelSelector(QWidget):
         self.api_handler = api_handler
         self.model_repository = model_repository
         self.current_models = []  # Track current model list
-        
-        # Initialize loader thread
-        self.loader_thread = ModelLoaderThread(api_handler, model_repository)
-        self.loader_thread.models_loaded.connect(self._on_models_loaded)
-        
         self._init_ui()
-        self._populate_model_list(INITIAL_MODELS)  # Load initial models immediately
-        self._start_background_loading()
+        self._load_models()
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -88,10 +40,10 @@ class ModelSelector(QWidget):
         self.model_combo.currentIndexChanged.connect(self._on_model_changed)
         combo_layout.addWidget(self.model_combo)
         
-        # Small refresh indicator
-        self.refresh_label = QLabel("Loading more models...")
-        self.refresh_label.setVisible(False)
-        combo_layout.addWidget(self.refresh_label)
+        # Manage models button
+        self.manage_button = QPushButton("Manage Models...")
+        self.manage_button.clicked.connect(self._show_model_manager)
+        combo_layout.addWidget(self.manage_button)
         
         form_layout.addRow("Model:", combo_layout)
         
@@ -106,11 +58,57 @@ class ModelSelector(QWidget):
         group.setLayout(main_layout)
         layout.addWidget(group)
     
-    def _start_background_loading(self):
-        """Start loading full model list in background."""
-        self.refresh_label.setVisible(True)
-        if not self.loader_thread.isRunning():
-            self.loader_thread.start()
+    def _load_default_models(self) -> List[Dict]:
+        """Load the default models list from JSON."""
+        try:
+            # First try to load from resources directory
+            paths = [
+                Path(__file__).parent.parent.parent.parent / 'resources' / 'models' / 'default_models.json',
+                Path.home() / '.replicate-desktop' / 'default_models.json'
+            ]
+            
+            for path in paths:
+                if path.exists():
+                    with open(path, 'r') as f:
+                        data = json.load(f)
+                        return data.get('models', [])
+            
+            logger.warning("Default models file not found")
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error loading default models: {e}")
+            return []
+    
+    def _load_models(self):
+        """Load models from cache or defaults."""
+        models = []
+        
+        # Try to load from database first
+        if self.model_repository:
+            try:
+                cached_models = self.model_repository.list_models()
+                for model in cached_models:
+                    metadata = model.model_metadata or {}
+                    models.append({
+                        'name': model.name,
+                        'owner': model.owner,
+                        'description': model.description,
+                        'identifier': model.identifier,
+                        'version': metadata.get('version', ''),
+                        'featured': metadata.get('featured', False)
+                    })
+                logger.debug(f"Loaded {len(models)} models from cache")
+            except Exception as e:
+                logger.error(f"Error loading cached models: {e}")
+        
+        # If no cached models, load defaults
+        if not models:
+            models = self._load_default_models()
+            logger.debug(f"Loaded {len(models)} default models")
+        
+        # Update the model list
+        self._populate_model_list(models)
     
     def _populate_model_list(self, models: List[Dict]):
         """Populate the combo box with models."""
@@ -158,15 +156,6 @@ class ModelSelector(QWidget):
                     self.model_combo.setCurrentIndex(i)
                     break
     
-    def _on_models_loaded(self, new_models: List[Dict]):
-        """Handle loaded model data."""
-        self.refresh_label.setVisible(False)
-        
-        if new_models:  # Only update if we got new models
-            # Combine initial and new models
-            all_models = INITIAL_MODELS + new_models
-            self._populate_model_list(all_models)
-    
     def _on_model_changed(self, index):
         """Handle model selection change."""
         if index >= 0:
@@ -180,6 +169,21 @@ class ModelSelector(QWidget):
                 # Update description
                 description = model_data.get('description', '')
                 self.description_label.setText(description)
+    
+    def _show_model_manager(self):
+        """Show the model manager dialog."""
+        if not self.model_repository:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Not Available",
+                "Model management requires database support which is not available."
+            )
+            return
+            
+        dialog = ModelManager(self.api_handler, self.model_repository, self)
+        dialog.models_updated.connect(self._load_models)  # Reload when cache changes
+        dialog.exec()
     
     def get_selected_model(self) -> Optional[str]:
         """Get the currently selected model identifier."""
@@ -201,3 +205,4 @@ class ModelSelector(QWidget):
         """Enable or disable the component."""
         super().setEnabled(enabled)
         self.model_combo.setEnabled(enabled)
+        self.manage_button.setEnabled(enabled)

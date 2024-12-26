@@ -1,0 +1,60 @@
+{
+    "models": [
+      {
+        "name": "SDXL Lightning (Fast)",
+        "owner": "bytedance",
+        "identifier": "bytedance/sdxl-lightning-4step",
+        "version": "5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637",
+        "description": "🚀 Fast generation model. SDXL-Lightning by ByteDance: a fast text-to-image model that makes high-quality images in 4 steps",
+        "featured": true
+      },
+      {
+        "name": "Stable Diffusion 3.5 Large",
+        "owner": "stability-ai",
+        "identifier": "stability-ai/stable-diffusion-3.5-large",
+        "version": "e6c4657fe1b3f078fb26d68a1413bc8013e2b085504dd84a33e26e16fb95a593",
+        "description": "✨ High quality model. A text-to-image model that generates high-resolution images with fine details.",
+        "featured": true
+      },
+      {
+        "name": "Photon Pro",
+        "owner": "luma",
+        "identifier": "luma/photon",
+        "version": "fe142c037cf359764f2058c3a42ef0dc750d908311d02868cbc7769fe800b648",
+        "description": "✨ High quality model. Optimized for creative professional workflows and ultra-high fidelity outputs",
+        "featured": true
+      },
+      {
+        "name": "SSD-1B (Fast)",
+        "owner": "lucataco",
+        "identifier": "lucataco/ssd-1b",
+        "version": "b19e3639452c59ce8295b82aba70a231404cb062f2eb580ea894b31e8ce5bbb6",
+        "description": "🚀 Fast generation model. Distilled 50% smaller version of SDXL offering 60% speedup while maintaining quality",
+        "featured": true
+      },
+      {
+        "name": "Flux Pro",
+        "owner": "black-forest-labs",
+        "identifier": "black-forest-labs/flux-pro",
+        "version": "a57823497a8beebcd222c20dd78af15a90c0415c36a5bfc88ee763c67155310e",
+        "description": "✨ High quality model. State-of-the-art image generation with excellent prompt following and visual quality",
+        "featured": true
+      },
+      {
+        "name": "Ideogram v2",
+        "owner": "ideogram-ai",
+        "identifier": "ideogram-ai/ideogram-v2",
+        "version": "d07f7f3ad03f2ec100edeaa91e26ac731d7d00ec369e6a475b80c04bd1101d5d",
+        "description": "📝 Excellent text rendering. State of the art inpainting and prompt comprehension",
+        "featured": true
+      },
+      {
+        "name": "Playground v2.5 Aesthetic",
+        "owner": "playgroundai",
+        "identifier": "playgroundai/playground-v2.5-1024px-aesthetic",
+        "version": "a45f82a1382bed5c7aeb861dac7c7d191b0fdf74d8d57c4a0e6ed7d4d0bf7d24",
+        "description": "🎨 Aesthetic focused. State-of-the-art open-source model in aesthetic quality",
+        "featured": true
+      }
+    ]
+  }

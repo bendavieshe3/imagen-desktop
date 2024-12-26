@@ -44,12 +44,12 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         
         # Schedule initial model cache update
-        QTimer.singleShot(1000, self._update_model_cache)
+        # QTimer.singleShot(1000, self._update_model_cache)
         
         # Set up periodic model cache updates (every 12 hours)
-        self.cache_timer = QTimer(self)
-        self.cache_timer.timeout.connect(self._update_model_cache)
-        self.cache_timer.start(12 * 60 * 60 * 1000)  # 12 hours in milliseconds
+        # self.cache_timer = QTimer(self)
+        # self.cache_timer.timeout.connect(self._update_model_cache)
+        # self.cache_timer.start(12 * 60 * 60 * 1000)  # 12 hours in milliseconds
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -270,5 +270,5 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Handle application close."""
         logger.debug("Application closing")
-        self.cache_timer.stop()
+        # self.cache_timer.stop()
         event.accept()

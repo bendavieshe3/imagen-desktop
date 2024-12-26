@@ -119,3 +119,17 @@ class ModelRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Error counting models: {e}")
             return 0
+        
+    def delete_by_identifier(self, identifier: str) -> bool:
+        """Delete a model by its identifier."""
+        try:
+            with self._get_session() as session:
+                model = session.query(Model).filter(Model.identifier == identifier).first()
+                if model:
+                    session.delete(model)
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            logger.error(f"Error deleting model {identifier}: {e}")
+            return False
