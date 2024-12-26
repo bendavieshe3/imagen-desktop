@@ -1,7 +1,7 @@
 """Main window for the Replicate Desktop application."""
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTabWidget,
-    QMessageBox, QStatusBar
+    QMessageBox, QStatusBar, QApplication
 )
 from sqlalchemy.orm import sessionmaker
 from typing import List
@@ -10,6 +10,8 @@ from pathlib import Path
 from .generation_form import GenerationForm
 from .gallery_view import GalleryView
 from .main_window_presenter import MainWindowPresenter
+from .dialogs.model_manager import ModelManager
+from .main_menu_bar import MainMenuBar
 from ..utils.debug_logger import logger
 
 class MainWindow(QMainWindow):
@@ -18,7 +20,7 @@ class MainWindow(QMainWindow):
     def __init__(self, session_factory: sessionmaker = None):
         super().__init__()
         self.setWindowTitle("Replicate Desktop")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1024, 768)
         
         # Initialize presenter
         self.presenter = MainWindowPresenter(session_factory, self)
@@ -28,10 +30,23 @@ class MainWindow(QMainWindow):
     
     def _init_ui(self):
         """Initialize the user interface."""
+        # Menu bar
+        self.menu_bar = MainMenuBar(self)
+        self.setMenuBar(self.menu_bar)
+        self.menu_bar.connect_actions(
+            show_models=self._show_model_manager,
+            show_generate=lambda: self.tab_widget.setCurrentWidget(self.generation_form),
+            show_gallery=lambda: self.tab_widget.setCurrentWidget(self.gallery_view),
+            show_about=self._show_about
+        )
+        
+        # Central widget setup
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
         
+        # Tab widget
         self.tab_widget = QTabWidget()
         main_layout.addWidget(self.tab_widget)
         
@@ -61,6 +76,24 @@ class MainWindow(QMainWindow):
             self.presenter.start_generation(model, params)
         except Exception as e:
             self.show_error("Generation Error", str(e))
+    
+    def _show_model_manager(self):
+        """Show the model manager dialog."""
+        if self.presenter.model_repository:
+            dialog = ModelManager(self.presenter.api_handler, self.presenter.model_repository, self)
+            dialog.exec()
+        else:
+            self.show_error("Not Available", "Model management requires database support.")
+    
+    def _show_about(self):
+        """Show the about dialog."""
+        QMessageBox.about(
+            self,
+            "About Replicate Desktop",
+            "A desktop client for Replicate's image generation models.\n\n"
+            "Version 0.1.0\n"
+            "© 2024 Contributors"
+        )
     
     def show_status(self, message: str, timeout: int = 5000):
         """Show a message in the status bar."""
