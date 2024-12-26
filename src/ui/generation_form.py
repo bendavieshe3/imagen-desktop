@@ -1,165 +1,138 @@
 """Main form for image generation."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QTabWidget, QMessageBox
+    QSplitter
 )
-from PyQt6.QtCore import pyqtSignal
-from typing import Optional
+from PyQt6.QtCore import pyqtSignal, Qt
+from pathlib import Path
+from typing import List, Optional
 
-from .forms.model_selector import ModelSelector
-from .forms.prompt_input import PromptInput
-from .forms.generation_params import GenerationParams
-from .forms.advanced_params import AdvancedParams
-from .forms.generation_progress import GenerationProgress
-from ..data.model_repository import ModelRepository
+from .forms.generation_sidebar import GenerationSidebar
+from .forms.output_display import OutputDisplay
+from .gallery.thumbnail_strip import ThumbnailStrip
+from ..utils.debug_logger import logger
 
 class GenerationForm(QWidget):
+    """Main generation interface combining sidebar, output display, and thumbnail strip."""
+    
     generation_requested = pyqtSignal(str, dict)  # model_id, parameters
     
-    def __init__(self, api_handler, model_repository: Optional[ModelRepository] = None):
+    def __init__(self, api_handler, model_repository=None):
         super().__init__()
         self.api_handler = api_handler
         self.model_repository = model_repository
         self.current_prediction_id = None
+        self.session_images: List[Path] = []
         self._init_ui()
         self._connect_signals()
     
     def _init_ui(self):
         """Initialize the user interface."""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        # Tabs for basic and advanced settings
-        tab_widget = QTabWidget()
+        # Main content area
+        content_layout = QHBoxLayout()
         
-        # Basic tab
-        basic_tab = QWidget()
-        basic_layout = QVBoxLayout(basic_tab)
+        # Create splitter for sidebar and output area
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        self.model_selector = ModelSelector(
+        # Left sidebar
+        self.sidebar = GenerationSidebar(
             self.api_handler,
             model_repository=self.model_repository
         )
-        basic_layout.addWidget(self.model_selector)
+        self.sidebar.setMaximumWidth(400)
+        splitter.addWidget(self.sidebar)
         
-        self.prompt_input = PromptInput()
-        basic_layout.addWidget(self.prompt_input)
+        # Output display
+        self.output_display = OutputDisplay()
+        splitter.addWidget(self.output_display)
         
-        self.generation_params = GenerationParams()
-        basic_layout.addWidget(self.generation_params)
+        # Set initial splitter sizes (30% sidebar, 70% output)
+        splitter.setSizes([30, 70])
         
-        basic_tab.setLayout(basic_layout)
-        tab_widget.addTab(basic_tab, "Basic")
+        content_layout.addWidget(splitter)
+        layout.addLayout(content_layout)
         
-        # Advanced tab
-        self.advanced_params = AdvancedParams()
-        tab_widget.addTab(self.advanced_params, "Advanced")
-        
-        layout.addWidget(tab_widget)
-        
-        # Progress section
-        self.progress = GenerationProgress()
-        layout.addWidget(self.progress)
-        
-        # Action buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.setEnabled(False)
-        self.cancel_button.clicked.connect(self._cancel_generation)
-        button_layout.addWidget(self.cancel_button)
-        
-        self.generate_button = QPushButton("Generate")
-        self.generate_button.setMinimumWidth(120)
-        self.generate_button.clicked.connect(self._on_generate)
-        button_layout.addWidget(self.generate_button)
-        
-        layout.addLayout(button_layout)
+        # Thumbnail strip
+        self.thumbnail_strip = ThumbnailStrip()
+        self.thumbnail_strip.setMinimumHeight(220)
+        self.thumbnail_strip.setMaximumHeight(220)
+        layout.addWidget(self.thumbnail_strip)
     
     def _connect_signals(self):
-        """Connect signals between components."""
+        """Connect internal signals."""
+        # Connect sidebar signals
+        self.sidebar.generation_requested.connect(self.generation_requested.emit)
+        
+        # Connect API handler signals
         self.api_handler.generation_started.connect(self._on_generation_started)
         self.api_handler.generation_completed.connect(self._on_generation_completed)
         self.api_handler.generation_failed.connect(self._on_generation_failed)
         self.api_handler.generation_canceled.connect(self._on_generation_canceled)
-    
-    def _on_generate(self):
-        """Handle generate button click."""
-        model_id = self.model_selector.get_selected_model()
-        if not model_id:
-            QMessageBox.critical(self, "Error", "Please select a valid model")
-            return
         
-        # Get parameters from components
-        basic_params = self.generation_params.get_parameters()
-        advanced_params = self.advanced_params.get_parameters()
-        
-        # Combine all parameters
-        params = {
-            'prompt': self.prompt_input.get_prompt(),
-            'num_outputs': basic_params.num_images,
-            'width': basic_params.width,
-            'height': basic_params.height,
-            'disable_safety_checker': True
-        }
-        
-        # Add advanced parameters if they differ from defaults
-        if advanced_params.seed is not None:
-            params['seed'] = advanced_params.seed
-        
-        if advanced_params.guidance_scale != 7.5:
-            params['guidance_scale'] = advanced_params.guidance_scale
-        
-        if advanced_params.num_inference_steps != 50:
-            params['num_inference_steps'] = advanced_params.num_inference_steps
-        
-        try:
-            self.generation_requested.emit(model_id, params)
-            self._update_ui_state(generating=True)
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-            self._update_ui_state(generating=False)
-    
-    def _cancel_generation(self):
-        """Cancel the current generation."""
-        if self.current_prediction_id:
-            self.api_handler.cancel_generation(self.current_prediction_id)
-            self.progress.set_status("Canceling generation...")
-            self.cancel_button.setEnabled(False)
+        # Connect thumbnail strip signals
+        self.thumbnail_strip.image_clicked.connect(self.output_display.display_image)
+        self.thumbnail_strip.image_deleted.connect(self._on_image_deleted)
     
     def _update_ui_state(self, generating: bool):
         """Update UI elements based on generation state."""
-        self.generate_button.setEnabled(not generating)
-        self.cancel_button.setEnabled(generating)
-        self.progress.show_progress(generating)
-        
-        # Enable/disable components
-        self.model_selector.setEnabled(not generating)
-        self.prompt_input.setEnabled(not generating)
-        self.generation_params.set_enabled(not generating)
-        self.advanced_params.set_enabled(not generating)
+        self.sidebar.set_enabled(not generating)
+        self.output_display.show_progress(generating)
     
     def _on_generation_started(self, prediction_id: str):
+        """Handle generation started signal."""
         self.current_prediction_id = prediction_id
-        self.progress.on_generation_started(prediction_id)
-        self._update_ui_state(generating=True)
+        self.output_display.set_status("Generating image...")
+        self.output_display.show_progress(True)
+        self._update_ui_state(True)
     
-    def _on_generation_completed(self, prediction_id: str, output_urls: list):
+    def _on_generation_completed(self, prediction_id: str, output_paths: List[Path]):
+        """Handle generation completed signal."""
         if prediction_id == self.current_prediction_id:
-            self.progress.on_generation_completed(prediction_id)
-            self._update_ui_state(generating=False)
+            self.output_display.set_status("Generation complete!")
+            self.output_display.show_progress(False)
+            self._update_ui_state(False)
+            
+            # Add images to thumbnail strip and session history
+            for path in output_paths:
+                if path.exists():
+                    self.session_images.append(path)
+                    self.thumbnail_strip.add_image(path)
+            
+            # Display the first output image
+            if output_paths:
+                self.output_display.display_image(output_paths[0])
+            
             self.current_prediction_id = None
     
     def _on_generation_failed(self, prediction_id: str, error: str):
+        """Handle generation failure."""
         if prediction_id == self.current_prediction_id:
-            self.progress.on_generation_failed(prediction_id, error)
-            self._update_ui_state(generating=False)
+            self.output_display.set_status(f"Generation failed: {error}")
+            self.output_display.show_progress(False)
+            self._update_ui_state(False)
             self.current_prediction_id = None
-            QMessageBox.critical(self, "Error", f"Generation failed: {error}")
     
     def _on_generation_canceled(self, prediction_id: str):
+        """Handle generation cancellation."""
         if prediction_id == self.current_prediction_id:
-            self.progress.on_generation_canceled(prediction_id)
-            self._update_ui_state(generating=False)
+            self.output_display.set_status("Generation canceled")
+            self.output_display.show_progress(False)
+            self._update_ui_state(False)
             self.current_prediction_id = None
+    
+    def _on_image_deleted(self, image_path: Path):
+        """Handle image deletion from thumbnail strip."""
+        try:
+            self.session_images.remove(image_path)
+            
+            # If the deleted image was being displayed, clear it
+            if (self.output_display.current_image and 
+                self.output_display.current_image.samefile(image_path)):
+                self.output_display.display_image(None)
+            
+            logger.debug(f"Removed {image_path} from session images")
+        except ValueError:
+            pass  # Image not in session list
