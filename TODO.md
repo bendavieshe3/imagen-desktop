@@ -4,7 +4,7 @@
 ## General
 
 - Finish integrating SQLite over the file system storage
-    - Retaining images on the file system that be imported etc.
+    - Retaining images on the file system to be imported etc.
 
 ## Settings / Config
 
@@ -12,9 +12,16 @@
 - That can maintain the API key
 - That can set an output directory or data directory
 
+## Model Manager
+
+- Add details about a selected model
+- Show more models
+
 ## Generation 
 
 - Organise form into a sidebar
+- fix size specification not working
+- respect model defaults
 - Show the resulting generation in the rest of the area
 - Add a thumbnail strip of the generated images in the current session with the same context controls as per gallery
 
