@@ -2,7 +2,7 @@
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, desc, asc
 from sqlalchemy.orm import joinedload
 
 from .base_repository import BaseRepository
@@ -69,7 +69,8 @@ class ProductRepository(BaseRepository):
                      product_type: Optional[str] = None,
                      collection_id: Optional[int] = None,
                      search: Optional[str] = None,
-                     limit: Optional[int] = None) -> List[Product]:
+                     limit: Optional[int] = None,
+                     order_by: Optional[tuple] = None) -> List[Product]:
         """
         List products with optional filtering.
         
@@ -79,6 +80,8 @@ class ProductRepository(BaseRepository):
             collection_id: Filter by collection ID
             search: Search term for metadata
             limit: Maximum number of results
+            order_by: Tuple of (field_name, direction) for sorting
+                     e.g., ("created_at", "desc") or ("file_size", "asc")
         """
         try:
             with self._get_session() as session:
@@ -103,6 +106,18 @@ class ProductRepository(BaseRepository):
                 
                 if filters:
                     query = query.filter(and_(*filters))
+                
+                # Apply ordering
+                if order_by:
+                    field_name, direction = order_by
+                    field = getattr(Product, field_name)
+                    if direction == "desc":
+                        query = query.order_by(desc(field))
+                    else:
+                        query = query.order_by(asc(field))
+                else:
+                    # Default ordering by created_at desc
+                    query = query.order_by(desc(Product.created_at))
                 
                 # Apply limit
                 if limit:

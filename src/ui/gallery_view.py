@@ -69,7 +69,11 @@ class GalleryView(QWidget):
     
     def refresh_gallery(self):
         """Refresh the gallery display."""
-        image_paths = self.presenter.list_images()
+        # Get current sort option if available
+        sort_by = self.sort_combo.currentText() if hasattr(self, 'sort_combo') else "Most Recent"
+        
+        # Get images with sorting
+        image_paths = self.presenter.list_images(sort_by=sort_by)
         
         # Update grid
         self.image_grid.set_images(image_paths)

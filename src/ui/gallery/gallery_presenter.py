@@ -1,6 +1,8 @@
 """Gallery presenter handling business logic for the gallery view."""
 from typing import List, Optional
 from pathlib import Path
+from PIL import Image
+from sqlalchemy import desc, asc
 from ...models.image_generation import ImageGenerationModel
 from ...data.product_repository import ProductRepository
 from ...utils.debug_logger import logger
@@ -13,13 +15,63 @@ class GalleryPresenter:
                  product_repository: Optional[ProductRepository] = None):
         self.image_model = image_model
         self.product_repository = product_repository
+        
+        # Import legacy files if using database
+        if self.product_repository:
+            self._import_legacy_files()
+    
+    def _import_legacy_files(self):
+        """Import existing files from file system into products table."""
+        try:
+            # Get list of existing product file paths
+            existing_products = self.product_repository.list_products()
+            existing_paths = {Path(p.file_path) for p in existing_products}
+            
+            # Get all files from generations
+            for generation in self.image_model.list_generations():
+                for file_path in generation.output_paths:
+                    if file_path.exists() and file_path not in existing_paths:
+                        try:
+                            # Get image metadata
+                            with Image.open(file_path) as img:
+                                width, height = img.size
+                                format = img.format.lower() if img.format else None
+                            
+                            # Create product record
+                            self.product_repository.create_product(
+                                file_path=file_path,
+                                generation_id=generation.id,
+                                width=width,
+                                height=height,
+                                format=format,
+                                product_type="image",
+                                metadata={
+                                    "source": "legacy_import",
+                                    "imported": True
+                                }
+                            )
+                            logger.debug(f"Imported legacy file: {file_path}")
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to import {file_path}: {e}")
+                            
+            logger.info("Completed legacy file import")
+            
+        except Exception as e:
+            logger.error(f"Error during legacy file import: {e}")
     
     def list_images(self, 
                    limit: Optional[int] = None,
-                   product_type: str = "image") -> List[Path]:
+                   product_type: str = "image",
+                   sort_by: str = "Most Recent") -> List[Path]:
         """
         List available images, preferring database if available.
         
+        Args:
+            limit: Maximum number of images to return
+            product_type: Type of product to list
+            sort_by: Sort order ("Most Recent", "Oldest First", "Largest Files", "Smallest Files")
+            
         Returns:
             List of Paths to image files
         """
@@ -28,10 +80,23 @@ class GalleryPresenter:
         # Try database first if available
         if self.product_repository:
             try:
-                products = self.product_repository.list_products(
-                    product_type=product_type,
-                    limit=limit
-                )
+                # Build query based on sort order
+                query_args = {
+                    "product_type": product_type,
+                    "limit": limit
+                }
+                
+                # Add ordering
+                if sort_by == "Oldest First":
+                    query_args["order_by"] = ("created_at", "asc")
+                elif sort_by == "Largest Files":
+                    query_args["order_by"] = ("file_size", "desc")
+                elif sort_by == "Smallest Files":
+                    query_args["order_by"] = ("file_size", "asc")
+                else:  # Most Recent
+                    query_args["order_by"] = ("created_at", "desc")
+                
+                products = self.product_repository.list_products(**query_args)
                 
                 for product in products:
                     path = Path(product.file_path)
