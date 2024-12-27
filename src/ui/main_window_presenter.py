@@ -1,12 +1,14 @@
 """Presenter logic for the main application window."""
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional, Set, List
 from sqlalchemy.orm import sessionmaker
+from PIL import Image
 
 from ..models.image_generation import ImageGenerationModel, GenerationStatus
 from ..api.api_handler import APIHandler
 from ..data.image_repository import ImageRepository
 from ..data.model_repository import ModelRepository
+from ..data.product_repository import ProductRepository
 from ..utils.debug_logger import logger
 
 class MainWindowPresenter:
@@ -29,10 +31,12 @@ class MainWindowPresenter:
         if session_factory:
             self.image_repository = ImageRepository(session_factory)
             self.model_repository = ModelRepository(session_factory)
+            self.product_repository = ProductRepository(session_factory)
             logger.info("Database repositories initialized")
         else:
             self.image_repository = None
             self.model_repository = None
+            self.product_repository = None
             logger.warning("Database storage not available")
         
         self._connect_signals()
@@ -116,6 +120,37 @@ class MainWindowPresenter:
             except Exception as e:
                 logger.error(f"Failed to update generation status in database: {e}")
     
+    def _create_product_record(self, generation_id: str, file_path: Path) -> bool:
+        """Create a product record for a generated file."""
+        try:
+            # Get image metadata
+            with Image.open(file_path) as img:
+                width, height = img.size
+                format = img.format.lower() if img.format else None
+            
+            # Create product record
+            if self.product_repository:
+                self.product_repository.create_product(
+                    file_path=file_path,
+                    generation_id=generation_id,
+                    width=width,
+                    height=height,
+                    format=format,
+                    product_type="image",
+                    metadata={
+                        "source": "generation",
+                        "imported": False
+                    }
+                )
+                logger.debug(f"Created product record for {file_path}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Failed to create product record for {file_path}: {e}")
+            return False
+    
     def _on_generation_completed(self, prediction_id: str, output_files: list):
         """Handle generation completed signal."""
         if prediction_id not in self.active_generations:
@@ -128,22 +163,22 @@ class MainWindowPresenter:
             else:
                 saved_paths = self.api_handler.save_generation_output(prediction_id, output_files)
             
-            # Update storage
+            # Update legacy storage
             self.image_model.update_generation(
                 prediction_id=prediction_id,
                 output_paths=saved_paths,
                 status=GenerationStatus.COMPLETED
             )
             
-            if self.image_repository:
-                try:
-                    for path in saved_paths:
-                        self.image_repository.add_image(
-                            generation_id=prediction_id,
-                            file_path=path
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to add images to database: {e}")
+            # Create product records
+            products_created = False
+            if self.product_repository:
+                for path in saved_paths:
+                    if self._create_product_record(prediction_id, path):
+                        products_created = True
+                    
+                if products_created:
+                    logger.info(f"Created product records for generation {prediction_id}")
             
             # Update view status only, don't switch tabs
             self.view.show_status(f"Generation completed: {prediction_id}")
