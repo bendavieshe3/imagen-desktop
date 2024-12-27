@@ -7,7 +7,8 @@ from PIL import Image
 from ..models.image_generation import ImageGenerationModel, GenerationStatus
 from ..api.api_handler import APIHandler
 from ..data.image_repository import ImageRepository
-from ..data.model_repository import ModelRepository
+from ..data.repositories.model_repository import ModelRepository
+from ..data.repositories.model_query_repository import ModelQueryRepository
 from ..data.product_repository import ProductRepository
 from ..utils.debug_logger import logger
 
@@ -31,11 +32,13 @@ class MainWindowPresenter:
         if session_factory:
             self.image_repository = ImageRepository(session_factory)
             self.model_repository = ModelRepository(session_factory)
+            self.model_query_repository = ModelQueryRepository(session_factory)
             self.product_repository = ProductRepository(session_factory)
             logger.info("Database repositories initialized")
         else:
             self.image_repository = None
             self.model_repository = None
+            self.model_query_repository = None
             self.product_repository = None
             logger.warning("Database storage not available")
         

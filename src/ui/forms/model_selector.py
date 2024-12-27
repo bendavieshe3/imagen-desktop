@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from ...api.api_handler import APIHandler
-from ...data.model_repository import ModelRepository
+from ...data.repositories.model_repository import ModelRepository
 from ..dialogs.model_manager import ModelManager
 from ...utils.debug_logger import logger
 

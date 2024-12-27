@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 from .model_manager_presenter import ModelManagerPresenter
 from ...api.api_handler import APIHandler
-from ...data.model_repository import ModelRepository
+from ...data.repositories.model_repository import ModelRepository
 from ...utils.debug_logger import logger
 
 class ModelManager(QDialog):

@@ -6,7 +6,7 @@ import json
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from ...api.api_handler import APIHandler
-from ...data.model_repository import ModelRepository
+from ...data.repositories.model_repository import ModelRepository
 from ...utils.debug_logger import logger
 
 class ModelLoaderThread(QObject):
