@@ -55,7 +55,10 @@ class MainWindow(QMainWindow):
             self.presenter.api_handler,
             model_repository=self.presenter.model_repository
         )
-        self.gallery_view = GalleryView(self.presenter.image_model)
+        self.gallery_view = GalleryView(
+            self.presenter.image_model,
+            product_repository=self.presenter.product_repository
+        )
         
         # Add tabs
         self.tab_widget.addTab(self.generation_form, "Generate")
