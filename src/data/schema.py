@@ -23,6 +23,7 @@ class Generation(Base):
     # Relationships
     images = relationship("Image", back_populates="generation", cascade="all, delete-orphan")
     tags = relationship("GenerationTag", back_populates="generation", cascade="all, delete-orphan")
+    products = relationship("Product", back_populates="generation", cascade="all, delete-orphan")
 
 class Image(Base):
     """Model for generated images."""
@@ -60,6 +61,51 @@ class Tag(Base):
     
     # Relationships
     generations = relationship("GenerationTag", back_populates="tag")
+
+class Product(Base):
+    """Model for individual generated outputs."""
+    __tablename__ = 'products'
+    
+    id = Column(Integer, primary_key=True)
+    generation_id = Column(String, ForeignKey('generations.id'))
+    file_path = Column(String, nullable=False)
+    product_type = Column(String, nullable=False)  # image, video, etc.
+    width = Column(Integer)
+    height = Column(Integer)
+    format = Column(String)
+    file_size = Column(Integer)
+    product_metadata = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, nullable=False)
+    
+    # Relationships
+    generation = relationship("Generation", back_populates="products")
+    collections = relationship("CollectionProduct", back_populates="product")
+
+class Collection(Base):
+    """Model for user-created collections."""
+    __tablename__ = 'collections'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    products = relationship("CollectionProduct", back_populates="collection")
+
+class CollectionProduct(Base):
+    """Association table for collections and products."""
+    __tablename__ = 'collection_products'
+    
+    collection_id = Column(Integer, ForeignKey('collections.id'), primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), primary_key=True)
+    added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    collection = relationship("Collection", back_populates="products")
+    product = relationship("Product", back_populates="collections")
+
+
 
 class GenerationTag(Base):
     """Association table for generations and tags."""
