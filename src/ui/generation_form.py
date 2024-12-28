@@ -4,8 +4,7 @@ from PyQt6.QtWidgets import (
     QSplitter
 )
 from PyQt6.QtCore import pyqtSignal, Qt
-from pathlib import Path
-from typing import List, Optional
+from typing import List, Any
 
 from .forms.generation_sidebar import GenerationSidebar
 from .forms.output_display import OutputDisplay
@@ -22,7 +21,6 @@ class GenerationForm(QWidget):
         self.api_handler = api_handler
         self.model_repository = model_repository
         self.current_prediction_id = None
-        self.session_images: List[Path] = []
         self._init_ui()
         self._connect_signals()
     
@@ -73,7 +71,6 @@ class GenerationForm(QWidget):
         self.api_handler.generation_canceled.connect(self._on_generation_canceled)
         
         # Connect thumbnail strip signals
-        self.thumbnail_strip.image_clicked.connect(self.output_display.display_image)
         self.thumbnail_strip.image_deleted.connect(self._on_image_deleted)
     
     def _update_ui_state(self, generating: bool):
@@ -88,51 +85,39 @@ class GenerationForm(QWidget):
         self.output_display.show_progress(True)
         self._update_ui_state(True)
     
-    def _on_generation_completed(self, prediction_id: str, output_paths: List[Path]):
+    def _on_generation_completed(self, prediction_id: str, outputs: List[Any]):
         """Handle generation completed signal."""
-        if prediction_id == self.current_prediction_id:
-            self.output_display.set_status("Generation complete!")
-            self.output_display.show_progress(False)
-            self._update_ui_state(False)
-            
-            # Add images to thumbnail strip and session history
-            for path in output_paths:
-                if path.exists():
-                    self.session_images.append(path)
-                    self.thumbnail_strip.add_image(path)
-            
-            # Display the first output image
-            if output_paths:
-                self.output_display.display_image(output_paths[0])
-            
-            self.current_prediction_id = None
+        if prediction_id != self.current_prediction_id:
+            return
+
+        self.output_display.set_status("Generation complete!")
+        self.output_display.show_progress(False)
+        self._update_ui_state(False)
+        
+        # Let the product creation be handled by MainWindowPresenter
+        # Just clear current prediction state
+        self.current_prediction_id = None
     
     def _on_generation_failed(self, prediction_id: str, error: str):
         """Handle generation failure."""
-        if prediction_id == self.current_prediction_id:
-            self.output_display.set_status(f"Generation failed: {error}")
-            self.output_display.show_progress(False)
-            self._update_ui_state(False)
-            self.current_prediction_id = None
+        if prediction_id != self.current_prediction_id:
+            return
+            
+        self.output_display.set_status(f"Generation failed: {error}")
+        self.output_display.show_progress(False)
+        self._update_ui_state(False)
+        self.current_prediction_id = None
     
     def _on_generation_canceled(self, prediction_id: str):
         """Handle generation cancellation."""
-        if prediction_id == self.current_prediction_id:
-            self.output_display.set_status("Generation canceled")
-            self.output_display.show_progress(False)
-            self._update_ui_state(False)
-            self.current_prediction_id = None
+        if prediction_id != self.current_prediction_id:
+            return
+            
+        self.output_display.set_status("Generation canceled")
+        self.output_display.show_progress(False)
+        self._update_ui_state(False)
+        self.current_prediction_id = None
     
-    def _on_image_deleted(self, image_path: Path):
+    def _on_image_deleted(self):
         """Handle image deletion from thumbnail strip."""
-        try:
-            self.session_images.remove(image_path)
-            
-            # If the deleted image was being displayed, clear it
-            if (self.output_display.current_image and 
-                self.output_display.current_image.samefile(image_path)):
-                self.output_display.display_image(None)
-            
-            logger.debug(f"Removed {image_path} from session images")
-        except ValueError:
-            pass  # Image not in session list
+        pass  # Handle via Product deletion
