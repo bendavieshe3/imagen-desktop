@@ -8,7 +8,8 @@ from typing import List, Any
 
 from .forms.generation_sidebar import GenerationSidebar
 from .forms.output_display import OutputDisplay
-from .gallery.thumbnail_strip import ThumbnailStrip
+from .features.gallery.widgets.product_strip import ProductStrip
+from ..core.models.product import Product
 from ..utils.debug_logger import logger
 
 class GenerationForm(QWidget):
@@ -53,11 +54,11 @@ class GenerationForm(QWidget):
         content_layout.addWidget(splitter)
         layout.addLayout(content_layout)
         
-        # Thumbnail strip
-        self.thumbnail_strip = ThumbnailStrip()
-        self.thumbnail_strip.setMinimumHeight(220)
-        self.thumbnail_strip.setMaximumHeight(220)
-        layout.addWidget(self.thumbnail_strip)
+        # Product thumbnail strip
+        self.product_strip = ProductStrip()
+        self.product_strip.setMinimumHeight(220)
+        self.product_strip.setMaximumHeight(220)
+        layout.addWidget(self.product_strip)
     
     def _connect_signals(self):
         """Connect internal signals."""
@@ -70,8 +71,9 @@ class GenerationForm(QWidget):
         self.api_handler.generation_failed.connect(self._on_generation_failed)
         self.api_handler.generation_canceled.connect(self._on_generation_canceled)
         
-        # Connect thumbnail strip signals
-        self.thumbnail_strip.image_deleted.connect(self._on_image_deleted)
+        # Connect product strip signals
+        self.product_strip.product_clicked.connect(self._on_product_clicked)
+        self.product_strip.product_deleted.connect(self._on_product_deleted)
     
     def _update_ui_state(self, generating: bool):
         """Update UI elements based on generation state."""
@@ -85,7 +87,7 @@ class GenerationForm(QWidget):
         self.output_display.show_progress(True)
         self._update_ui_state(True)
     
-    def _on_generation_completed(self, prediction_id: str, outputs: List[Any]):
+    def _on_generation_completed(self, prediction_id: str, products: List[Product]):
         """Handle generation completed signal."""
         if prediction_id != self.current_prediction_id:
             return
@@ -94,8 +96,14 @@ class GenerationForm(QWidget):
         self.output_display.show_progress(False)
         self._update_ui_state(False)
         
-        # Let the product creation be handled by MainWindowPresenter
-        # Just clear current prediction state
+        # Update displays with products
+        for product in products:
+            self.product_strip.add_product(product)
+            
+        # Show latest product in output display
+        if products:
+            self.output_display.display_image(products[-1].file_path)
+        
         self.current_prediction_id = None
     
     def _on_generation_failed(self, prediction_id: str, error: str):
@@ -118,6 +126,11 @@ class GenerationForm(QWidget):
         self._update_ui_state(False)
         self.current_prediction_id = None
     
-    def _on_image_deleted(self):
-        """Handle image deletion from thumbnail strip."""
-        pass  # Handle via Product deletion
+    def _on_product_clicked(self, product: Product):
+        """Handle product thumbnail click."""
+        self.output_display.display_image(product.file_path)
+    
+    def _on_product_deleted(self, product: Product):
+        """Handle product deletion from strip."""
+        # ProductStrip will auto-update via events
+        pass

@@ -5,12 +5,13 @@ import requests
 from sqlalchemy.orm import sessionmaker
 from PIL import Image
 
+from ..core.models.product import Product, ProductType
 from ..models.image_generation import ImageGenerationModel
 from ..api.api_handler import APIHandler
 from ..data.image_repository import ImageRepository
 from ..data.repositories.model_repository import ModelRepository
 from ..data.repositories.model_query_repository import ModelQueryRepository
-from ..data.product_repository import ProductRepository
+from ..data.repositories.product_repository import ProductRepository
 from .presenters import GenerationPresenter
 from ..utils.debug_logger import LogManager
 
@@ -63,8 +64,8 @@ class MainWindowPresenter:
         """Start a new image generation."""
         return self.generation_presenter.start_generation(model, params)
     
-    def _save_output_to_file(self, output: Any) -> Optional[Path]:
-        """Save generation output to file."""
+    def _save_output_and_create_product(self, output: Any, prediction_id: str) -> Optional[Product]:
+        """Save generation output to file and create product record."""
         try:
             output_dir = Path.home() / '.replicate-desktop' / 'products'
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -89,7 +90,28 @@ class MainWindowPresenter:
             with open(file_path, 'wb') as f:
                 f.write(data)
             
-            return file_path
+            # Create product if repository available
+            if self.product_repository:
+                try:
+                    with Image.open(file_path) as img:
+                        width, height = img.size
+                        format = img.format.lower() if img.format else None
+                        
+                    product = self.product_repository.create_product(
+                        file_path=file_path,
+                        generation_id=prediction_id,
+                        width=width,
+                        height=height,
+                        format=format,
+                        product_type=ProductType.IMAGE
+                    )
+                    if product:
+                        return product
+                        
+                except Exception as e:
+                    logger.error(f"Failed to create product record: {e}")
+                    
+            return None
             
         except Exception as e:
             logger.error("Failed to save output file", extra={'context': {'error': str(e)}})
@@ -104,41 +126,19 @@ class MainWindowPresenter:
     def _on_generation_completed(self, prediction_id: str, outputs: list):
         """Handle generation completed signal."""
         try:
-            saved_paths = []
+            products = []
             
             for output in outputs:
-                file_path = self._save_output_to_file(output)
-                if file_path:
-                    saved_paths.append(file_path)
-                    
-                    # Create product if repository available
-                    if self.product_repository:
-                        try:
-                            with Image.open(file_path) as img:
-                                width, height = img.size
-                                format = img.format.lower() if img.format else None
-                                
-                            self.product_repository.create_product(
-                                file_path=file_path,
-                                generation_id=prediction_id,
-                                width=width,
-                                height=height,
-                                format=format,
-                                product_type="image"
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to create product record: {e}")
+                product = self._save_output_and_create_product(output, prediction_id)
+                if product:
+                    products.append(product)
             
             if self.view:
-                # Update thumbnail strip with each image
-                for path in saved_paths:
-                    self.view.generation_form.thumbnail_strip.add_image(path)
-                
-                # Display the latest image in the output display
-                if saved_paths:
-                    self.view.generation_form.output_display.display_image(saved_paths[-1])
+                # Pass products to generation form
+                if hasattr(self.view, 'generation_form'):
+                    self.view.generation_form._on_generation_completed(prediction_id, products)
                     
-                self.view.show_status(f"Generation completed ({len(saved_paths)} images created)")
+                self.view.show_status(f"Generation completed ({len(products)} products created)")
             
         except Exception as e:
             logger.error("Failed to handle generation completion", extra={'context': {'error': str(e)}})

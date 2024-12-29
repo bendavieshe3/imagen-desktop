@@ -1,4 +1,5 @@
-# Replicate API Desktop Client Requirements
+# Imagen Desktop Client Requirements
+
 
 ## Project Setup
 ### Environment Setup
@@ -7,32 +8,42 @@
 - Replicate Python client
 - Development tools for macOS
 
+
 ### Project Structure
 ```
-replicate-desktop/
-├── requirements.txt
-├── src/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── config/
-│   │   └── settings.py
-│   ├── ui/
-│   │   ├── __init__.py
-│   │   ├── main_window.py
-│   │   ├── generation_form.py
-│   │   ├── gallery_view.py
-│   │   └── carousel_view.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── image_generation.py
-│   └── utils/
-│       ├── __init__.py
-│       └── api_handler.py
-├── tests/
-│   └── __init__.py
-└── resources/
-    └── styles/
-        └── main.qss
+imagen_desktop/           # Main package
+    __init__.py
+    main.py
+    core/                   # Core business logic
+        __init__.py
+        config/            # Configuration management
+        models/            # Domain models (Product, etc.)
+        services/          # Business services (Factories)
+        events/           # Event system
+    data/                  # Data access
+        __init__.py
+        migrations/       # Database migrations
+        repositories/     # Repository implementations
+        schema/          # Database schema definitions
+    ui/                    # User interface
+        __init__.py
+        features/         # Feature-specific components
+            gallery/
+            generation/
+        shared/          # Shared UI components
+        widgets/         # Custom widgets
+    utils/                 # Utilities and helpers
+        __init__.py
+tests/                     # Test directory
+    __init__.py
+    unit/
+    integration/
+docs/                      # Documentation
+    requirements.md
+    architecture.md
+setup.py                   # Package configuration
+requirements.txt           # Dependencies
+README.md                 # Project documentation
 ```
 
 ## Functional Requirements

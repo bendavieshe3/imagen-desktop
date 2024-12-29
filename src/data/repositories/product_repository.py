@@ -7,6 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from .base_repository import BaseRepository
 from .schema import Product, Generation, Collection, CollectionProduct
+from ..core.events.product_events import ProductEvent, ProductEventType, ProductEventPublisher
 from ..utils.debug_logger import logger
 
 class ProductRepository(BaseRepository):
@@ -20,18 +21,7 @@ class ProductRepository(BaseRepository):
                       format: Optional[str] = None,
                       product_type: str = "image",
                       metadata: dict = None) -> Optional[Product]:
-        """
-        Create a new product record.
-        
-        Args:
-            file_path: Path to the product file
-            generation_id: Optional ID of generating Generation
-            width: Image width in pixels
-            height: Image height in pixels
-            format: File format (e.g., 'png', 'jpg')
-            product_type: Type of product ('image', 'video', etc.)
-            metadata: Additional metadata as JSON
-        """
+        """Create a new product record."""
         try:
             file_size = file_path.stat().st_size if file_path.exists() else None
             
@@ -46,7 +36,18 @@ class ProductRepository(BaseRepository):
                 product_metadata=metadata or {},
                 created_at=datetime.utcnow()
             )
-            return self.add(product)
+            
+            created_product = self.add(product)
+            if created_product:
+                # Emit creation event
+                event = ProductEvent(
+                    event_type=ProductEventType.CREATED,
+                    product_id=created_product.id,
+                    product_type=product_type
+                )
+                ProductEventPublisher.publish_product_event(event)
+                
+            return created_product
             
         except Exception as e:
             logger.error(f"Error creating product: {e}")
@@ -69,20 +70,10 @@ class ProductRepository(BaseRepository):
                      product_type: Optional[str] = None,
                      collection_id: Optional[int] = None,
                      search: Optional[str] = None,
+                     file_path: Optional[str] = None,
                      limit: Optional[int] = None,
                      order_by: Optional[tuple] = None) -> List[Product]:
-        """
-        List products with optional filtering.
-        
-        Args:
-            generation_id: Filter by generation ID
-            product_type: Filter by product type
-            collection_id: Filter by collection ID
-            search: Search term for metadata
-            limit: Maximum number of results
-            order_by: Tuple of (field_name, direction) for sorting
-                     e.g., ("created_at", "desc") or ("file_size", "asc")
-        """
+        """List products with filtering."""
         try:
             with self._get_session() as session:
                 query = session.query(Product)
@@ -96,12 +87,13 @@ class ProductRepository(BaseRepository):
                 if collection_id:
                     query = query.join(CollectionProduct)
                     filters.append(CollectionProduct.collection_id == collection_id)
+                if file_path:
+                    filters.append(Product.file_path == file_path)
                 if search:
-                    # Basic metadata search - extend based on needs
                     search_term = f"%{search}%"
                     filters.append(or_(
                         Product.file_path.ilike(search_term),
-                        Product.product_metadata['description'].astext.ilike(search_term)
+                        Product.product_metadata.cast(type_=str).ilike(search_term)
                     ))
                 
                 if filters:
@@ -144,7 +136,32 @@ class ProductRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Error updating product metadata: {e}")
             return False
-    
+
+    def delete_product(self, product_id: int) -> bool:
+        """Delete a product record."""
+        try:
+            with self._get_session() as session:
+                product = session.query(Product).get(product_id)
+                if product:
+                    # Generate event before deletion
+                    event = ProductEvent(
+                        event_type=ProductEventType.DELETED,
+                        product_id=product.id,
+                        product_type=product.product_type
+                    )
+                    
+                    # Delete record
+                    session.delete(product)
+                    session.commit()
+                    
+                    # Emit event after successful deletion
+                    ProductEventPublisher.publish_product_event(event)
+                    return True
+                return False
+        except Exception as e:
+            logger.error(f"Error deleting product: {e}")
+            return False
+
     def add_to_collection(self,
                          product_id: int,
                          collection_id: int) -> bool:
