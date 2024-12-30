@@ -1,3 +1,6 @@
+# Setup
+setuptools>=69.0.0
+
 # UI Framework
 PyQt6>=6.4.0
 
