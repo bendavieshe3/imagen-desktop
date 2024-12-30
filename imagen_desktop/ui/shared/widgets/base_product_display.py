@@ -2,17 +2,18 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import List
+from pathlib import Path
 
 from imagen_desktop.core.models.product import Product
-from imagen_desktop.ui.features.gallery.widgets.product_thumbnail import ProductThumbnail
+from imagen_desktop.ui.shared.widgets.product_thumbnail import ProductThumbnail
 from imagen_desktop.utils.debug_logger import logger
 
 class BaseProductDisplay(QWidget):
     """Base class for product thumbnail displays."""
     
     # Signals
-    product_clicked = pyqtSignal(Product)
-    product_deleted = pyqtSignal(Product)
+    product_clicked = pyqtSignal(object)
+    product_deleted = pyqtSignal(object)
     
     def __init__(self):
         super().__init__()
@@ -68,12 +69,15 @@ class BaseProductDisplay(QWidget):
         """Set the products to display."""
         self.clear()
         for product in products:
-            self._add_thumbnail(product)
+            file_path = Path(product.file_path)
+            if file_path.exists():
+                self._add_thumbnail(product)
         logger.debug(f"Added {len(self.thumbnails)} products to display")
     
     def add_product(self, product: Product, position=None):
         """Add a single product."""
-        if product.file_path.exists():
+        file_path = Path(product.file_path)
+        if file_path.exists():
             self._add_thumbnail(product, position)
     
     def clear(self):
@@ -84,3 +88,7 @@ class BaseProductDisplay(QWidget):
         
         # Clear layout (implementation specific)
         self._clear_layout()
+    
+    def _clear_layout(self):
+        """Clear the layout. Override in subclasses."""
+        raise NotImplementedError

@@ -3,9 +3,10 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QWidget, QScrollArea, QFileDialog
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from typing import List
+from pathlib import Path
 import shutil
 
 from imagen_desktop.core.models.product import Product
@@ -80,18 +81,24 @@ class ProductViewer(QDialog):
         """Display the current product."""
         if 0 <= self.current_index < len(self.products):
             product = self.products[self.current_index]
+            file_path = Path(product.file_path) if isinstance(product.file_path, str) else product.file_path
             
-            if product.file_path.exists():
-                pixmap = QPixmap(str(product.file_path))
-                scaled_pixmap = pixmap.scaled(
-                    self.image_label.size(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
-                self.image_label.setPixmap(scaled_pixmap)
-                self._update_info_label(product)
+            if file_path.exists():
+                pixmap = QPixmap(str(file_path))
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaled(
+                        self.image_label.size(),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    self.image_label.setPixmap(scaled_pixmap)
+                    self._update_info_label(product)
+                else:
+                    self.image_label.setText("Error loading image")
+                    logger.error(f"Failed to load image for product {product.id}")
             else:
                 self.image_label.setText("Image file not found")
+                logger.error(f"Image file not found: {file_path}")
     
     def _update_info_label(self, product: Product):
         """Update the information label."""
@@ -124,11 +131,13 @@ class ProductViewer(QDialog):
         """Copy current image to clipboard."""
         if 0 <= self.current_index < len(self.products):
             try:
-                from PyQt6.QtWidgets import QApplication
-                clipboard = QApplication.clipboard()
-                pixmap = QPixmap(str(self.products[self.current_index].file_path))
+                from PyQt6.QtGui import QGuiApplication
+                clipboard = QGuiApplication.clipboard()
+                product = self.products[self.current_index]
+                file_path = Path(product.file_path) if isinstance(product.file_path, str) else product.file_path
+                pixmap = QPixmap(str(file_path))
                 clipboard.setPixmap(pixmap)
-                logger.debug("Copied image to clipboard")
+                logger.debug(f"Copied product {product.id} to clipboard")
             except Exception as e:
                 logger.error(f"Failed to copy to clipboard: {e}")
                 from PyQt6.QtWidgets import QMessageBox
@@ -138,17 +147,19 @@ class ProductViewer(QDialog):
         """Save current image to a new location."""
         if 0 <= self.current_index < len(self.products):
             product = self.products[self.current_index]
+            file_path = Path(product.file_path) if isinstance(product.file_path, str) else product.file_path
+            
             file_name = QFileDialog.getSaveFileName(
                 self,
                 "Save Image As",
-                str(product.file_path.name),
+                str(file_path.name),
                 "Images (*.png *.jpg *.jpeg *.webp)"
             )[0]
             
             if file_name:
                 try:
-                    shutil.copy2(product.file_path, file_name)
-                    logger.debug(f"Saved image to {file_name}")
+                    shutil.copy2(file_path, file_name)
+                    logger.debug(f"Saved product {product.id} to {file_name}")
                 except Exception as e:
                     logger.error(f"Failed to save image: {e}")
                     from PyQt6.QtWidgets import QMessageBox

@@ -1,91 +1,58 @@
 """Grid layout for displaying product thumbnails."""
-from PyQt6.QtWidgets import QWidget, QGridLayout, QScrollArea, QVBoxLayout
-from PyQt6.QtCore import Qt, pyqtSignal
-from pathlib import Path
-from typing import List
+from PyQt6.QtWidgets import QGridLayout
+from PyQt6.QtCore import Qt
 
-from imagen_desktop.ui.features.gallery.widgets.product_thumbnail import ProductThumbnail
-from imagen_desktop.ui.features.gallery.widgets.product_context_menu import ProductContextMenu
-from imagen_desktop.core.models.product import Product
+from imagen_desktop.ui.shared.widgets.base_product_display import BaseProductDisplay
+from imagen_desktop.ui.shared.widgets.product_thumbnail import ProductThumbnail
 from imagen_desktop.utils.debug_logger import logger
 
-class ProductGrid(QWidget):
-    """Grid layout for displaying product thumbnails."""
-    
-    # Signals
-    product_clicked = pyqtSignal(Product)  # Emitted when thumbnail clicked
-    product_deleted = pyqtSignal(Product)  # Emitted when product deleted
+class ProductGrid(BaseProductDisplay):
+    """Grid layout for product thumbnails."""
     
     def __init__(self):
         super().__init__()
-        self.thumbnails = []
-        self._init_ui()
+        self.current_row = 0
+        self.current_col = 0
+        self.max_cols = 3
     
-    def _init_ui(self):
-        """Initialize the user interface."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Create scroll area
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
-        # Create content widget for scroll area
-        self.scroll_content = QWidget()
-        self.grid_layout = QGridLayout(self.scroll_content)
-        self.grid_layout.setSpacing(10)
-        
-        scroll.setWidget(self.scroll_content)
-        layout.addWidget(scroll)
+    def _create_layout(self) -> QGridLayout:
+        """Create grid layout for thumbnails."""
+        layout = QGridLayout()
+        layout.setSpacing(10)
+        return layout
     
-    def set_products(self, products: List[Product]):
-        """Set the products to display in the grid."""
-        # Clear existing thumbnails
-        self.clear()
+    def _add_to_layout(self, thumbnail: ProductThumbnail, position=None):
+        """Add thumbnail to grid layout."""
+        if position is not None:
+            # Calculate row and column from position
+            row = position // self.max_cols
+            col = position % self.max_cols
+        else:
+            row = self.current_row
+            col = self.current_col
+            
+            # Update next position
+            self.current_col += 1
+            if self.current_col >= self.max_cols:
+                self.current_col = 0
+                self.current_row += 1
         
-        # Add new thumbnails
-        row = 0
-        col = 0
-        max_cols = 3
-        
-        for product in products:
-            if product.file_path.exists():
-                thumbnail = ProductThumbnail(product)
-                thumbnail.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-                thumbnail.customContextMenuRequested.connect(
-                    lambda pos, p=product: self._show_context_menu(pos, p)
-                )
-                thumbnail.clicked.connect(
-                    lambda p=product: self.product_clicked.emit(p)
-                )
-                
-                self.grid_layout.addWidget(thumbnail, row, col)
-                self.thumbnails.append(thumbnail)
-                
-                col += 1
-                if col >= max_cols:
-                    col = 0
-                    row += 1
+        self.content_layout.addWidget(thumbnail, row, col)
         
         # Add stretch to bottom
-        self.grid_layout.setRowStretch(row + 1, 1)
-        logger.debug(f"Added {len(self.thumbnails)} products to grid")
+        if row > 0:
+            self.content_layout.setRowStretch(row + 1, 1)
     
-    def clear(self):
-        """Remove all thumbnails."""
-        for thumbnail in self.thumbnails:
-            thumbnail.deleteLater()
-        self.thumbnails.clear()
-        
-        # Clear grid layout
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
+    def _clear_layout(self):
+        """Clear the grid layout."""
+        while self.content_layout.count():
+            item = self.content_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-    
-    def _show_context_menu(self, pos, product: Product):
-        """Show context menu for a thumbnail."""
-        menu = ProductContextMenu(product, self)
-        menu.product_deleted.connect(self.product_deleted.emit)
-        menu.exec(self.sender().mapToGlobal(pos))
+        
+        self.current_row = 0
+        self.current_col = 0
+        
+        # Reset row stretches
+        for i in range(self.content_layout.rowCount()):
+            self.content_layout.setRowStretch(i, 0)

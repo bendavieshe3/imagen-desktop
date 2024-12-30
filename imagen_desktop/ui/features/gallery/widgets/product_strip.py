@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import QHBoxLayout
 from PyQt6.QtCore import Qt
 from typing import Optional
 
-from imagen_desktop.ui.features.gallery.widgets.base_product_display import BaseProductDisplay
-from imagen_desktop.ui.features.gallery.widgets.product_thumbnail import ProductThumbnail
+from imagen_desktop.ui.shared.widgets.base_product_display import BaseProductDisplay
+from imagen_desktop.ui.shared.widgets.product_thumbnail import ProductThumbnail
 from imagen_desktop.utils.debug_logger import logger
 
 class ProductStrip(BaseProductDisplay):
