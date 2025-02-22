@@ -92,11 +92,20 @@ class GalleryView(QWidget):
     
     def _handle_product_event(self, event: ProductEvent):
         """Handle product-related events."""
-        if event.event_type == ProductEventType.SELECTED:
+        logger.debug(f"Gallery received product event: {event.event_type}")
+        
+        if event.event_type == ProductEventType.CREATED:
+            # Refresh gallery to show new product
+            self.refresh_gallery()
+            self.status_label.setText("New product added")
+            
+        elif event.event_type == ProductEventType.SELECTED:
             self._show_product_viewer(event.data.product)
+            
         elif event.event_type == ProductEventType.DELETED:
             self.refresh_gallery()
             self.status_label.setText("Product deleted successfully")
+            
         elif event.event_type == ProductEventType.ERROR:
             QMessageBox.warning(
                 self,
@@ -108,6 +117,12 @@ class GalleryView(QWidget):
         """Show the product viewer dialog."""
         viewer = ProductViewer([product], parent=self)
         viewer.exec()
+    
+    def showEvent(self, event):
+        """Handle view becoming visible."""
+        super().showEvent(event)
+        # Refresh when view becomes visible
+        self.refresh_gallery()
     
     def closeEvent(self, event):
         """Handle view closure."""

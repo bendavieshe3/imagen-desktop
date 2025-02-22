@@ -11,6 +11,7 @@ from imagen_desktop.ui.main_window_presenter import MainWindowPresenter
 from imagen_desktop.ui.dialogs.model_manager import ModelManager
 from imagen_desktop.ui.main_menu_bar import MainMenuBar
 from imagen_desktop.data.database import Database
+from imagen_desktop.api.client_core import APIKeyError
 from imagen_desktop.utils.debug_logger import logger
 
 class MainWindow(QMainWindow):
@@ -21,11 +22,29 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Imagen Desktop")
         self.setMinimumSize(1024, 768)
         
-        # Initialize presenter
-        self.presenter = MainWindowPresenter(database, self)
-        
-        self._init_ui()
-        self._connect_signals()
+        try:
+            # Initialize presenter
+            self.presenter = MainWindowPresenter(database, self)
+            
+            self._init_ui()
+            self._connect_signals()
+            
+        except APIKeyError:
+            # Let the error dialog from client_core handle the message
+            # Just close the application
+            logger.error("Application closing due to missing API key")
+            QApplication.quit()
+            return
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize main window: {e}")
+            QMessageBox.critical(
+                self,
+                "Initialization Error",
+                f"Failed to initialize application: {str(e)}\n\nThe application will now close."
+            )
+            QApplication.quit()
+            return
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -108,20 +127,6 @@ class MainWindow(QMainWindow):
     def show_error(self, title: str, message: str):
         """Show an error dialog."""
         QMessageBox.critical(self, title, message)
-    
-    def on_generation_complete(self, prediction_id: str, file_paths: list):
-        """Handle completed generation."""
-        self.show_status(
-            f"Generation completed: {prediction_id} - Images saved successfully",
-            5000
-        )
-        self.tab_widget.setCurrentWidget(self.gallery_view)
-        self.gallery_view.refresh_gallery()
-    
-    def on_generation_failed(self, prediction_id: str, error: str):
-        """Handle failed generation."""
-        self.show_status(f"Generation failed: {error}", 5000)
-        self.show_error("Generation Failed", error)
     
     def closeEvent(self, event):
         """Handle application close."""

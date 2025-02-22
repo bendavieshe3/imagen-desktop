@@ -1,5 +1,6 @@
 """Gallery presenter handling business logic for the gallery view."""
 from typing import List, Optional
+from operator import attrgetter
 
 from imagen_desktop.core.models.product import Product, ProductType
 from imagen_desktop.data.repositories.product_repository import ProductRepository
@@ -38,7 +39,38 @@ class GalleryPresenter:
             List of Product objects
         """
         try:
-            return self.product_repository.get_all_products()
+            # Get all products
+            products = self.product_repository.get_all_products()
+            
+            # Filter by type if specified
+            if product_type:
+                products = [p for p in products if p.product_type == product_type]
+            
+            # Apply sorting
+            if sort_by == "Most Recent":
+                products.sort(key=attrgetter('created_at'), reverse=True)
+            elif sort_by == "Oldest First":
+                products.sort(key=attrgetter('created_at'))
+            elif sort_by == "Largest Files":
+                products.sort(key=attrgetter('file_size'), reverse=True)
+            elif sort_by == "Smallest Files":
+                products.sort(key=attrgetter('file_size'))
+            
+            # Apply limit if specified
+            if limit is not None:
+                products = products[:limit]
+            
+            logger.debug(
+                f"Listed {len(products)} products",
+                extra={
+                    'context': {
+                        'sort_by': sort_by,
+                        'product_type': product_type
+                    }
+                }
+            )
+            
+            return products
             
         except Exception as e:
             logger.error(f"Error listing products: {e}")

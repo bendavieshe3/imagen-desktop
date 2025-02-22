@@ -1,2 +1,2 @@
 [console_scripts]
-replicate-desktop = replicate_desktop.main:main
+imagen-desktop = imagen_desktop.main:main

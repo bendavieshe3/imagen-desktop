@@ -31,26 +31,52 @@ class ProductRepository(BaseRepository):
             metadata=model.product_metadata if model.product_metadata else {}
         )
 
-    def add_product(self, product: Product) -> bool:
-        """Add a new product to the repository."""
+    def create_product(self,
+                      file_path: Path,
+                      generation_id: Optional[str] = None,
+                      width: Optional[int] = None,
+                      height: Optional[int] = None,
+                      format: Optional[str] = None,
+                      product_type: ProductType = ProductType.IMAGE) -> Optional[Product]:
+        """Create a new product.
+        
+        Args:
+            file_path: Path to the product file
+            generation_id: Optional ID of generation that created this product
+            width: Optional width in pixels
+            height: Optional height in pixels
+            format: Optional file format (e.g., 'png', 'jpg')
+            product_type: Type of product (defaults to IMAGE)
+            
+        Returns:
+            Created Product or None if creation failed
+        """
         try:
+            # Ensure file exists and get size
+            if not file_path.exists():
+                logger.error(f"File not found: {file_path}")
+                return None
+            
+            file_size = file_path.stat().st_size
+            
             with self._get_session() as session:
                 model = ProductModel(
-                    file_path=str(product.file_path),
-                    product_type=product.product_type.value,
-                    generation_id=product.generation_id,
-                    created_at=product.created_at or datetime.now(),
-                    width=product.width,
-                    height=product.height,
-                    format=product.format,
-                    file_size=product.file_size,
-                    product_metadata=product.metadata
+                    file_path=str(file_path),
+                    product_type=product_type.value,
+                    generation_id=generation_id,
+                    created_at=datetime.now(),
+                    width=width,
+                    height=height,
+                    format=format,
+                    file_size=file_size,
+                    product_metadata={}
                 )
                 session.add(model)
                 session.commit()
+                session.refresh(model)
                 
-                # Update product with generated ID
-                product.id = model.id
+                # Convert to domain model
+                product = self._model_to_domain(model)
                 
                 # Emit creation event
                 event = ProductEvent(
@@ -59,19 +85,12 @@ class ProductRepository(BaseRepository):
                 )
                 ProductEventPublisher.publish_product_event(event)
                 
-                logger.info(f"Added product {product.id}")
-                return True
+                logger.info(f"Created product {product.id}")
+                return product
                 
         except Exception as e:
-            logger.error(f"Error adding product: {e}")
-            if hasattr(product, 'id'):
-                event = ProductEvent(
-                    event_type=ProductEventType.ERROR,
-                    product=product,
-                    error=str(e)
-                )
-                ProductEventPublisher.publish_product_event(event)
-            return False
+            logger.error(f"Error creating product: {e}")
+            return None
 
     def get_product(self, product_id: int) -> Optional[Product]:
         """Get a product by ID."""
@@ -164,6 +183,4 @@ class ProductRepository(BaseRepository):
                 
         except Exception as e:
             logger.error(f"Error deleting product {product_id}: {e}")
-            # Can't emit error event with product as it may not exist
-            # Consider alternative error reporting here
             return False

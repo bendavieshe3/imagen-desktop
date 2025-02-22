@@ -15,10 +15,10 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "replicate-desktop=replicate_desktop.main:main",
+            "imagen-desktop=imagen_desktop.main:main",
         ],
     },
-    author="Contributors",
+    author="Ben Davies",
     description="Desktop client for Replicate's image generation models",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
