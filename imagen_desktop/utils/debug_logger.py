@@ -10,7 +10,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict
 
 # Global constants
-APP_NAME = 'replicate-desktop'
+APP_NAME = 'imagen-desktop'
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
 DEFAULT_LOG_LEVEL = logging.INFO
 DEBUG_LOG_LEVEL = logging.DEBUG
@@ -44,7 +44,7 @@ class LoggerFactory:
     @staticmethod
     def get_log_dir() -> Path:
         """Get the logging directory."""
-        log_dir = Path.home() / '.replicate-desktop' / 'logs'
+        log_dir = Path.home() / '.imagen-desktop' / 'logs'
         log_dir.mkdir(parents=True, exist_ok=True)
         return log_dir
     
@@ -57,7 +57,7 @@ class LoggerFactory:
         # Only configure if not already set up
         if not logger.handlers:
             # Determine log level from environment
-            debug_mode = os.environ.get('REPLICATE_DEBUG', '').lower() in ('1', 'true')
+            debug_mode = os.environ.get('IMAGEN_DEBUG', '').lower() in ('1', 'true')
             log_level = DEBUG_LOG_LEVEL if debug_mode else DEFAULT_LOG_LEVEL
             
             logger.setLevel(log_level)

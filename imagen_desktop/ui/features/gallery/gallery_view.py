@@ -1,22 +1,21 @@
 """Main gallery view for displaying generated images."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QComboBox
+    QPushButton, QLabel, QComboBox, QMessageBox
 )
-from PyQt6.QtCore import pyqtSignal
 
 from imagen_desktop.ui.features.gallery.widgets.product_grid import ProductGrid
 from imagen_desktop.ui.features.gallery.gallery_presenter import GalleryPresenter
 from imagen_desktop.ui.features.gallery.dialogs.product_viewer import ProductViewer
 from imagen_desktop.core.models.product import Product, ProductType
-from imagen_desktop.core.events.product_events import ProductEventPublisher, ProductEvent, ProductEventType
+from imagen_desktop.core.events.product_events import (
+    ProductEvent, ProductEventType, ProductEventPublisher
+)
 from imagen_desktop.data.repositories.product_repository import ProductRepository
 from imagen_desktop.utils.debug_logger import logger
 
 class GalleryView(QWidget):
     """Main gallery view combining grid and controls."""
-    
-    product_selected = pyqtSignal(Product)
     
     def __init__(self, product_repository: ProductRepository):
         super().__init__()
@@ -66,13 +65,9 @@ class GalleryView(QWidget):
         layout.addWidget(self.product_grid)
     
     def _connect_signals(self):
-        """Connect internal signals."""
+        """Connect signals and events."""
         self.refresh_button.clicked.connect(self.refresh_gallery)
         self.sort_combo.currentTextChanged.connect(self.refresh_gallery)
-        
-        # Product grid signals
-        self.product_grid.product_clicked.connect(self._show_product_viewer)
-        self.product_grid.product_deleted.connect(self._handle_product_deleted)
         
         # Subscribe to product events
         ProductEventPublisher.subscribe_to_products(self._handle_product_event)
@@ -95,30 +90,26 @@ class GalleryView(QWidget):
         self.status_label.setText(f"{len(products)} products")
         logger.debug(f"Refreshed gallery with {len(products)} products")
     
+    def _handle_product_event(self, event: ProductEvent):
+        """Handle product-related events."""
+        if event.event_type == ProductEventType.SELECTED:
+            self._show_product_viewer(event.data.product)
+        elif event.event_type == ProductEventType.DELETED:
+            self.refresh_gallery()
+            self.status_label.setText("Product deleted successfully")
+        elif event.event_type == ProductEventType.ERROR:
+            QMessageBox.warning(
+                self,
+                "Operation Failed",
+                f"Operation failed: {event.data.error}"
+            )
+    
     def _show_product_viewer(self, product: Product):
         """Show the product viewer dialog."""
         viewer = ProductViewer([product], parent=self)
         viewer.exec()
     
-    def _handle_product_deleted(self, product: Product):
-        """Handle product deletion."""
-        if self.presenter.delete_product(product.file_path):
-            self.status_label.setText("Product deleted successfully")
-        else:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self,
-                "Delete Failed",
-                f"Failed to delete product {product.id}. Please check logs for details."
-            )
-    
-    def _handle_product_event(self, event: ProductEvent):
-        """Handle product-related events."""
-        if event.event_type in [ProductEventType.CREATED, ProductEventType.DELETED]:
-            self.refresh_gallery()
-    
     def closeEvent(self, event):
         """Handle view closure."""
-        # Unsubscribe from events
         ProductEventPublisher.unsubscribe_from_products(self._handle_product_event)
         super().closeEvent(event)

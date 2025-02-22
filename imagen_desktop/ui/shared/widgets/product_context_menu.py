@@ -1,20 +1,16 @@
 """Context menu for product thumbnails."""
 from PyQt6.QtWidgets import QMenu, QMessageBox, QFileDialog
 from PyQt6.QtGui import QClipboard, QPixmap
-from PyQt6.QtCore import pyqtSignal
 from pathlib import Path
 
 from imagen_desktop.core.models.product import Product
 from imagen_desktop.core.events.product_events import (
-    ProductEventPublisher, ProductEvent, ProductEventType
+    ProductEvent, ProductEventType, ProductEventPublisher
 )
 from imagen_desktop.utils.debug_logger import logger
 
 class ProductContextMenu(QMenu):
     """Context menu for product operations."""
-    
-    # Signal declaration with explicit type
-    product_deleted = pyqtSignal(object)  # Signal will accept any object type
     
     def __init__(self, product: Product, parent=None):
         super().__init__(parent)
@@ -97,19 +93,15 @@ class ProductContextMenu(QMenu):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                # Emit event so repository can handle deletion
+                # Create and emit delete event
                 event = ProductEvent(
-                    event_type=ProductEventType.DELETED,
-                    product_id=self.product.id,
-                    product_type=self.product.product_type
+                    event_type=ProductEventType.DELETED,  
+                    product=self.product
                 )
-                ProductEventPublisher.publish(event)
-                
-                # Notify UI components
-                self.product_deleted.emit(self.product)
-                logger.info(f"Deleted product {self.product.id}")
+                ProductEventPublisher.publish_product_event(event)
+                logger.info(f"Deletion requested for product {self.product.id}")
             except Exception as e:
-                logger.error(f"Failed to delete product: {e}")
+                logger.error(f"Failed to request product deletion: {e}")
                 QMessageBox.critical(
                     self,
                     "Error",

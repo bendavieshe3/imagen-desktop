@@ -1,5 +1,5 @@
 """Base event system implementation."""
-from typing import Callable, Set, TypeVar, Generic
+from typing import Callable, Set, TypeVar, Generic, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -9,12 +9,20 @@ from imagen_desktop.utils.debug_logger import logger
 T = TypeVar('T')
 
 @dataclass
+class EventData:
+    """Base class for event data."""
+    success: bool = True
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = None
+
+@dataclass
 class BaseEvent(Generic[T]):
     """Base class for all events."""
     event_type: str
-    entity_id: any
+    entity_id: Any
     entity_type: str
     timestamp: datetime = None
+    data: Optional[T] = None
     
     def __post_init__(self):
         if self.timestamp is None:
@@ -23,24 +31,25 @@ class BaseEvent(Generic[T]):
 class EventPublisher:
     """Base publisher for domain events."""
     
-    _instances = {}  # One instance per event type
-    _subscribers: Set[Callable] = set()
+    _instances: Dict[str, 'EventPublisher'] = {}
+    _subscribers: Dict[str, Set[Callable]] = {}
     
     def __new__(cls, event_type: str):
         """Create or return publisher for event type."""
         if event_type not in cls._instances:
             cls._instances[event_type] = super().__new__(cls)
-            cls._instances[event_type]._subscribers = set()
-            cls._instances[event_type]._event_type = event_type
+            cls._subscribers[event_type] = set()
         return cls._instances[event_type]
     
     @classmethod
     def subscribe(cls, event_type: str, callback: Callable[[BaseEvent], None]):
         """Subscribe to events of a specific type."""
-        instance = cls(event_type)
-        instance._subscribers.add(callback)
+        if event_type not in cls._subscribers:
+            cls._subscribers[event_type] = set()
+        
+        cls._subscribers[event_type].add(callback)
         logger.debug(
-            f"Added event subscriber",
+            "Added event subscriber",
             extra={
                 'context': {
                     'event_type': event_type,
@@ -52,10 +61,10 @@ class EventPublisher:
     @classmethod
     def unsubscribe(cls, event_type: str, callback: Callable[[BaseEvent], None]):
         """Unsubscribe from events of a specific type."""
-        if event_type in cls._instances:
-            cls._instances[event_type]._subscribers.discard(callback)
+        if event_type in cls._subscribers:
+            cls._subscribers[event_type].discard(callback)
             logger.debug(
-                f"Removed event subscriber",
+                "Removed event subscriber",
                 extra={
                     'context': {
                         'event_type': event_type,
@@ -67,25 +76,28 @@ class EventPublisher:
     @classmethod
     def publish(cls, event: BaseEvent):
         """Publish an event to all subscribers."""
-        instance = cls(event.event_type)
-        
+        event_type = event.event_type
+        if event_type not in cls._subscribers:
+            return
+            
         logger.debug(
-            f"Publishing event",
+            "Publishing event",
             extra={
                 'context': {
-                    'event_type': event.event_type,
+                    'event_type': event_type,
                     'entity_id': event.entity_id,
-                    'entity_type': event.entity_type
+                    'entity_type': event.entity_type,
+                    'subscriber_count': len(cls._subscribers[event_type])
                 }
             }
         )
         
-        for subscriber in instance._subscribers:
+        for subscriber in cls._subscribers[event_type]:
             try:
                 subscriber(event)
             except Exception as e:
                 logger.error(
-                    f"Error in event subscriber",
+                    "Error in event subscriber",
                     extra={
                         'context': {
                             'subscriber': subscriber.__qualname__,
@@ -93,3 +105,10 @@ class EventPublisher:
                         }
                     }
                 )
+
+    @classmethod
+    def clear_subscribers(cls, event_type: str):
+        """Clear all subscribers for an event type."""
+        if event_type in cls._subscribers:
+            cls._subscribers[event_type].clear()
+            logger.debug(f"Cleared all subscribers for {event_type}")

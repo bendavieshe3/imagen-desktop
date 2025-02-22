@@ -10,10 +10,10 @@ class ProductGrid(BaseProductDisplay):
     """Grid layout for product thumbnails."""
     
     def __init__(self):
-        super().__init__()
         self.current_row = 0
         self.current_col = 0
         self.max_cols = 3
+        super().__init__()
     
     def _create_layout(self) -> QGridLayout:
         """Create grid layout for thumbnails."""

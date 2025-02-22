@@ -1,198 +1,169 @@
-"""Repository for managing Product records."""
-from datetime import datetime
+"""Repository for managing products."""
 from pathlib import Path
 from typing import List, Optional
-from sqlalchemy import or_, and_, desc, asc
-from sqlalchemy.orm import joinedload
+from datetime import datetime
 
+from sqlalchemy import desc
+
+from imagen_desktop.core.models.product import Product, ProductType
+from imagen_desktop.data.schema import Product as ProductModel
 from imagen_desktop.data.repositories.base_repository import BaseRepository
-from imagen_desktop.data.schema import Product, Generation, Collection, CollectionProduct
-from imagen_desktop.core.events.product_events import ProductEvent, ProductEventType, ProductEventPublisher
+from imagen_desktop.core.events.product_events import (
+    ProductEvent, ProductEventType, ProductEventPublisher
+)
 from imagen_desktop.utils.debug_logger import logger
 
 class ProductRepository(BaseRepository):
-    """Repository for Product model operations."""
-    
-    def create_product(self,
-                      file_path: Path,
-                      generation_id: Optional[str] = None,
-                      width: Optional[int] = None,
-                      height: Optional[int] = None,
-                      format: Optional[str] = None,
-                      product_type: str = "image",
-                      metadata: dict = None) -> Optional[Product]:
-        """Create a new product record."""
+    """Repository for managing product data and persistence."""
+
+    def _model_to_domain(self, model: ProductModel) -> Product:
+        """Convert DB model to domain model."""
+        return Product(
+            id=model.id,
+            file_path=Path(model.file_path),
+            product_type=ProductType(model.product_type),
+            generation_id=model.generation_id,
+            created_at=model.created_at,
+            width=model.width,
+            height=model.height,
+            format=model.format,
+            file_size=model.file_size,
+            metadata=model.product_metadata if model.product_metadata else {}
+        )
+
+    def add_product(self, product: Product) -> bool:
+        """Add a new product to the repository."""
         try:
-            file_size = file_path.stat().st_size if file_path.exists() else None
-            
-            product = Product(
-                file_path=str(file_path),
-                generation_id=generation_id,
-                width=width,
-                height=height,
-                format=format,
-                file_size=file_size,
-                product_type=product_type,
-                product_metadata=metadata or {},
-                created_at=datetime.utcnow()
-            )
-            
-            created_product = self.add(product)
-            if created_product:
+            with self._get_session() as session:
+                model = ProductModel(
+                    file_path=str(product.file_path),
+                    product_type=product.product_type.value,
+                    generation_id=product.generation_id,
+                    created_at=product.created_at or datetime.now(),
+                    width=product.width,
+                    height=product.height,
+                    format=product.format,
+                    file_size=product.file_size,
+                    product_metadata=product.metadata
+                )
+                session.add(model)
+                session.commit()
+                
+                # Update product with generated ID
+                product.id = model.id
+                
                 # Emit creation event
                 event = ProductEvent(
                     event_type=ProductEventType.CREATED,
-                    product_id=created_product.id,
-                    product_type=product_type
+                    product=product
                 )
                 ProductEventPublisher.publish_product_event(event)
                 
-            return created_product
-            
+                logger.info(f"Added product {product.id}")
+                return True
+                
         except Exception as e:
-            logger.error(f"Error creating product: {e}")
-            return None
-    
+            logger.error(f"Error adding product: {e}")
+            if hasattr(product, 'id'):
+                event = ProductEvent(
+                    event_type=ProductEventType.ERROR,
+                    product=product,
+                    error=str(e)
+                )
+                ProductEventPublisher.publish_product_event(event)
+            return False
+
     def get_product(self, product_id: int) -> Optional[Product]:
         """Get a product by ID."""
         try:
-            with self._get_session() as session:
-                return session.query(Product)\
-                    .options(joinedload(Product.generation))\
-                    .filter(Product.id == product_id)\
-                    .first()
-        except Exception as e:
-            logger.error(f"Error getting product {product_id}: {e}")
+            model = self.get_by_id(ProductModel, product_id)
+            if model:
+                return self._model_to_domain(model)
+            logger.debug(f"Product {product_id} not found")
             return None
-    
-    def list_products(self,
-                     generation_id: Optional[str] = None,
-                     product_type: Optional[str] = None,
-                     collection_id: Optional[int] = None,
-                     search: Optional[str] = None,
-                     file_path: Optional[str] = None,
-                     limit: Optional[int] = None,
-                     order_by: Optional[tuple] = None) -> List[Product]:
-        """List products with filtering."""
+        except Exception as e:
+            logger.error(f"Error retrieving product {product_id}: {e}")
+            return None
+
+    def get_all_products(self) -> List[Product]:
+        """Get all products, ordered by creation date."""
         try:
             with self._get_session() as session:
-                query = session.query(Product)
-                
-                # Apply filters
-                filters = []
-                if generation_id:
-                    filters.append(Product.generation_id == generation_id)
-                if product_type:
-                    filters.append(Product.product_type == product_type)
-                if collection_id:
-                    query = query.join(CollectionProduct)
-                    filters.append(CollectionProduct.collection_id == collection_id)
-                if file_path:
-                    filters.append(Product.file_path == file_path)
-                if search:
-                    search_term = f"%{search}%"
-                    filters.append(or_(
-                        Product.file_path.ilike(search_term),
-                        Product.product_metadata.cast(type_=str).ilike(search_term)
-                    ))
-                
-                if filters:
-                    query = query.filter(and_(*filters))
-                
-                # Apply ordering
-                if order_by:
-                    field_name, direction = order_by
-                    field = getattr(Product, field_name)
-                    if direction == "desc":
-                        query = query.order_by(desc(field))
-                    else:
-                        query = query.order_by(asc(field))
-                else:
-                    # Default ordering by created_at desc
-                    query = query.order_by(desc(Product.created_at))
-                
-                # Apply limit
-                if limit:
-                    query = query.limit(limit)
-                
-                return query.all()
-                
+                models = session.query(ProductModel).order_by(
+                    desc(ProductModel.created_at)
+                ).all()
+                return [self._model_to_domain(m) for m in models]
         except Exception as e:
-            logger.error(f"Error listing products: {e}")
+            logger.error(f"Error retrieving products: {e}")
             return []
-    
-    def update_product_metadata(self,
-                              product_id: int,
-                              metadata_updates: dict) -> bool:
-        """Update product metadata."""
+
+    def update_product(self, product: Product) -> bool:
+        """Update an existing product."""
         try:
             with self._get_session() as session:
-                product = session.query(Product).get(product_id)
-                if product:
-                    product.product_metadata.update(metadata_updates)
+                model = session.query(ProductModel).get(product.id)
+                if model:
+                    model.file_path = str(product.file_path)
+                    model.product_type = product.product_type.value
+                    model.generation_id = product.generation_id
+                    model.width = product.width
+                    model.height = product.height
+                    model.format = product.format
+                    model.file_size = product.file_size
+                    model.product_metadata = product.metadata
                     session.commit()
+                    
+                    # Emit update event
+                    event = ProductEvent(
+                        event_type=ProductEventType.UPDATED,
+                        product=product
+                    )
+                    ProductEventPublisher.publish_product_event(event)
+                    
+                    logger.info(f"Updated product {product.id}")
                     return True
+                    
+                logger.debug(f"Product {product.id} not found for update")
                 return False
+                
         except Exception as e:
-            logger.error(f"Error updating product metadata: {e}")
+            logger.error(f"Error updating product {product.id}: {e}")
+            event = ProductEvent(
+                event_type=ProductEventType.ERROR,
+                product=product,
+                error=str(e)
+            )
+            ProductEventPublisher.publish_product_event(event)
             return False
 
     def delete_product(self, product_id: int) -> bool:
-        """Delete a product record."""
+        """Delete a product."""
         try:
             with self._get_session() as session:
-                product = session.query(Product).get(product_id)
-                if product:
-                    # Generate event before deletion
-                    event = ProductEvent(
-                        event_type=ProductEventType.DELETED,
-                        product_id=product.id,
-                        product_type=product.product_type
-                    )
+                model = session.query(ProductModel).get(product_id)
+                if model:
+                    # Convert to domain model for event before deletion
+                    product = self._model_to_domain(model)
                     
-                    # Delete record
-                    session.delete(product)
+                    # Delete from database
+                    session.delete(model)
                     session.commit()
                     
-                    # Emit event after successful deletion
+                    # Emit deletion event
+                    event = ProductEvent(
+                        event_type=ProductEventType.DELETED,
+                        product=product
+                    )
                     ProductEventPublisher.publish_product_event(event)
+                    
+                    logger.info(f"Deleted product {product_id}")
                     return True
+                    
+                logger.debug(f"Product {product_id} not found for deletion")
                 return False
+                
         except Exception as e:
-            logger.error(f"Error deleting product: {e}")
-            return False
-
-    def add_to_collection(self,
-                         product_id: int,
-                         collection_id: int) -> bool:
-        """Add a product to a collection."""
-        try:
-            with self._get_session() as session:
-                association = CollectionProduct(
-                    product_id=product_id,
-                    collection_id=collection_id
-                )
-                session.add(association)
-                session.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error adding product to collection: {e}")
-            return False
-    
-    def remove_from_collection(self,
-                             product_id: int,
-                             collection_id: int) -> bool:
-        """Remove a product from a collection."""
-        try:
-            with self._get_session() as session:
-                session.query(CollectionProduct)\
-                    .filter_by(
-                        product_id=product_id,
-                        collection_id=collection_id
-                    )\
-                    .delete()
-                session.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error removing product from collection: {e}")
+            logger.error(f"Error deleting product {product_id}: {e}")
+            # Can't emit error event with product as it may not exist
+            # Consider alternative error reporting here
             return False

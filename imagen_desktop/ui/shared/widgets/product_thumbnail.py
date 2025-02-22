@@ -1,16 +1,17 @@
 """Thumbnail widget for displaying a product."""
 from PyQt6.QtWidgets import QLabel
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QMouseEvent
 from pathlib import Path
 
 from imagen_desktop.core.models.product import Product
+from imagen_desktop.core.events.product_events import (
+    ProductEvent, ProductEventType, ProductEventPublisher
+)
 from imagen_desktop.utils.debug_logger import logger
 
 class ProductThumbnail(QLabel):
     """Widget displaying a thumbnail of a product."""
-    
-    clicked = pyqtSignal(Product)
     
     def __init__(self, product: Product, parent=None):
         super().__init__(parent)
@@ -105,8 +106,17 @@ class ProductThumbnail(QLabel):
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press events."""
         if event.button() == Qt.MouseButton.LeftButton:
-            if self.product is not None:  # Add validation
-                self.clicked.emit(self.product)
+            if self.product is not None:
+                try:
+                    # Emit selection event
+                    logger.debug(f"Selected product {self.product.id}")
+                    event = ProductEvent(
+                        event_type=ProductEventType.SELECTED,
+                        product=self.product
+                    )
+                    ProductEventPublisher.publish_product_event(event)
+                except Exception as e:
+                    logger.error(f"Error handling product selection: {e}")
             else:
                 logger.error("Product not available for thumbnail")
         super().mousePressEvent(event)

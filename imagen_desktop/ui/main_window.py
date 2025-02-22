@@ -1,10 +1,8 @@
-"""Main window for the Replicate Desktop application."""
+"""Main window for the Imagen Desktop application."""
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTabWidget,
     QMessageBox, QStatusBar, QApplication
 )
-from sqlalchemy.orm import sessionmaker
-from typing import List
 from pathlib import Path
 
 from imagen_desktop.ui.features.generation.generation_form import GenerationForm
@@ -12,18 +10,19 @@ from imagen_desktop.ui.features.gallery.gallery_view import GalleryView
 from imagen_desktop.ui.main_window_presenter import MainWindowPresenter
 from imagen_desktop.ui.dialogs.model_manager import ModelManager
 from imagen_desktop.ui.main_menu_bar import MainMenuBar
+from imagen_desktop.data.database import Database
 from imagen_desktop.utils.debug_logger import logger
 
 class MainWindow(QMainWindow):
     """Main application window."""
     
-    def __init__(self, session_factory: sessionmaker = None):
+    def __init__(self, database: Database):
         super().__init__()
-        self.setWindowTitle("Replicate Desktop")
+        self.setWindowTitle("Imagen Desktop")
         self.setMinimumSize(1024, 768)
         
         # Initialize presenter
-        self.presenter = MainWindowPresenter(session_factory, self)
+        self.presenter = MainWindowPresenter(database, self)
         
         self._init_ui()
         self._connect_signals()
@@ -80,17 +79,24 @@ class MainWindow(QMainWindow):
     def _show_model_manager(self):
         """Show the model manager dialog."""
         if self.presenter.model_repository:
-            dialog = ModelManager(self.presenter.api_handler, self.presenter.model_repository, self)
+            dialog = ModelManager(
+                self.presenter.api_handler,
+                self.presenter.model_repository,
+                self
+            )
             dialog.exec()
         else:
-            self.show_error("Not Available", "Model management requires database support.")
+            self.show_error(
+                "Not Available",
+                "Model management requires database support."
+            )
     
     def _show_about(self):
         """Show the about dialog."""
         QMessageBox.about(
             self,
-            "About Replicate Desktop",
-            "A desktop client for Replicate's image generation models.\n\n"
+            "About Imagen Desktop",
+            "A desktop client for image generation models.\n\n"
             "Version 0.1.0\n"
             "© 2024 Contributors"
         )
@@ -103,7 +109,7 @@ class MainWindow(QMainWindow):
         """Show an error dialog."""
         QMessageBox.critical(self, title, message)
     
-    def on_generation_complete(self, prediction_id: str, saved_paths: List[Path]):
+    def on_generation_complete(self, prediction_id: str, file_paths: list):
         """Handle completed generation."""
         self.show_status(
             f"Generation completed: {prediction_id} - Images saved successfully",
@@ -115,7 +121,7 @@ class MainWindow(QMainWindow):
     def on_generation_failed(self, prediction_id: str, error: str):
         """Handle failed generation."""
         self.show_status(f"Generation failed: {error}", 5000)
-        self.show_error("Generation Failed", f"Generation failed: {error}")
+        self.show_error("Generation Failed", error)
     
     def closeEvent(self, event):
         """Handle application close."""

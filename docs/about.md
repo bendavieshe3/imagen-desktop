@@ -223,4 +223,9 @@ A page showing a list of recent orders, generations, and products showing the st
 A page showing a list of products, with a way to view the product details, navigate to the order page of the product (to re-order it), delete or manipulate the product, show metadata etc. Products may be searched and grouped by type (image, video, audio, etc.), by project and by collection.
 
 
+# Implementation Decisions
 
+
+1. We are not using QT Signals
+2. We are using SQLAlchemy for database access
+3. We are proactively removing legacy code not designing for backwards compatibility

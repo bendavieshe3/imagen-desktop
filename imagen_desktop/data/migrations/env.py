@@ -24,9 +24,9 @@ target_metadata = Base.metadata
 
 def get_url():
     """Get database URL from environment or configuration."""
-    data_dir = Path.home() / '.replicate-desktop'
+    data_dir = Path.home() / '.imagen-desktop'
     data_dir.mkdir(parents=True, exist_ok=True)
-    db_path = data_dir / 'replicate.db'
+    db_path = data_dir / 'imagen.db'
     return f"sqlite:///{db_path}"
 
 def run_migrations_offline() -> None:

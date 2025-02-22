@@ -10,6 +10,9 @@ from imagen_desktop.ui.features.generation.forms.generation_sidebar import Gener
 from imagen_desktop.ui.features.generation.forms.output_display import OutputDisplay
 from imagen_desktop.ui.features.gallery.widgets.product_strip import ProductStrip
 from imagen_desktop.core.models.product import Product
+from imagen_desktop.core.events.product_events import (
+    ProductEvent, ProductEventType, ProductEventPublisher
+)
 from imagen_desktop.utils.debug_logger import logger
 
 class GenerationForm(QWidget):
@@ -24,6 +27,7 @@ class GenerationForm(QWidget):
         self.current_prediction_id = None
         self._init_ui()
         self._connect_signals()
+        ProductEventPublisher.subscribe_to_products(self._handle_product_event)
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -70,10 +74,15 @@ class GenerationForm(QWidget):
         self.api_handler.generation_completed.connect(self._on_generation_completed)
         self.api_handler.generation_failed.connect(self._on_generation_failed)
         self.api_handler.generation_canceled.connect(self._on_generation_canceled)
-        
-        # Connect product strip signals
-        self.product_strip.product_clicked.connect(self._on_product_clicked)
-        self.product_strip.product_deleted.connect(self._on_product_deleted)
+    
+    def _handle_product_event(self, event: ProductEvent):
+        """Handle product events."""
+        if event.event_type == ProductEventType.SELECTED:
+            self._on_product_clicked(event.data.product)
+    
+    def _on_product_clicked(self, product: Product):
+        """Handle product selection."""
+        self.output_display.display_image(product.file_path)
     
     def _update_ui_state(self, generating: bool):
         """Update UI elements based on generation state."""
@@ -126,11 +135,7 @@ class GenerationForm(QWidget):
         self._update_ui_state(False)
         self.current_prediction_id = None
     
-    def _on_product_clicked(self, product: Product):
-        """Handle product thumbnail click."""
-        self.output_display.display_image(product.file_path)
-    
-    def _on_product_deleted(self, product: Product):
-        """Handle product deletion from strip."""
-        # ProductStrip will auto-update via events
-        pass
+    def closeEvent(self, event):
+        """Handle view closure."""
+        ProductEventPublisher.unsubscribe_from_products(self._handle_product_event)
+        super().closeEvent(event)

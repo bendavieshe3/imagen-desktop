@@ -1,11 +1,10 @@
-"""Event system for product-related changes."""
-from typing import Callable, List, Set
+"""Product-related events and event handling."""
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum, auto
+from typing import Optional
 
 from imagen_desktop.core.events.base import BaseEvent, EventPublisher
-from imagen_desktop.core.models.product import Product, ProductType
+from imagen_desktop.core.models.product import Product
 from imagen_desktop.utils.debug_logger import logger
 
 class ProductEventType(str, Enum):
@@ -13,34 +12,51 @@ class ProductEventType(str, Enum):
     CREATED = "created"
     UPDATED = "updated"
     DELETED = "deleted"
+    SELECTED = "selected"
+    ERROR = "error"
 
-class ProductEvent(BaseEvent[Product]):
-    """Event containing product change information."""
+@dataclass
+class ProductEventData:
+    """Data for product events."""
+    product: Product
+    error: Optional[str] = None
+
+class ProductEvent(BaseEvent[ProductEventData]):
+    """Event representing a product operation."""
     
-    def __init__(self, event_type: ProductEventType, product_id: int, product_type: ProductType):
+    def __init__(self, event_type: ProductEventType, product: Product, error: Optional[str] = None):
         super().__init__(
             event_type=event_type,
-            entity_id=product_id,
-            entity_type="product"
+            entity_id=product.id,
+            entity_type="product",
+            data=ProductEventData(product=product, error=error)
         )
-        self.product_type = product_type
 
-class ProductEventPublisher(EventPublisher):
-    """Publisher for product-specific events."""
-    
-    EVENT_TYPE = "product"
-    
-    @classmethod
-    def subscribe_to_products(cls, callback: Callable[[ProductEvent], None]):
-        """Subscribe to all product events."""
-        cls.subscribe(cls.EVENT_TYPE, callback)
-    
-    @classmethod
-    def unsubscribe_from_products(cls, callback: Callable[[ProductEvent], None]):
-        """Unsubscribe from all product events."""
-        cls.unsubscribe(cls.EVENT_TYPE, callback)
+class ProductEventPublisher:
+    """Publisher for product events."""
     
     @classmethod
     def publish_product_event(cls, event: ProductEvent):
         """Publish a product event."""
-        cls.publish(event)
+        logger.debug(
+            "Publishing product event",
+            extra={
+                'context': {
+                    'event_type': event.event_type,
+                    'product_id': event.entity_id
+                }
+            }
+        )
+        EventPublisher.publish(event)
+    
+    @classmethod
+    def subscribe_to_products(cls, callback):
+        """Subscribe to all product events."""
+        for event_type in ProductEventType:
+            EventPublisher.subscribe(event_type, callback)
+    
+    @classmethod
+    def unsubscribe_from_products(cls, callback):
+        """Unsubscribe from all product events."""
+        for event_type in ProductEventType:
+            EventPublisher.unsubscribe(event_type, callback)

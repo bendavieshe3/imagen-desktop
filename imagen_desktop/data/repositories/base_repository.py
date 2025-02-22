@@ -1,20 +1,28 @@
-"""Base repository implementation for SQLAlchemy."""
+"""Base repository implementation."""
 from typing import TypeVar, Type, Optional, List
-from sqlalchemy.orm import Session, sessionmaker
+
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from ...utils.debug_logger import logger
+
+from imagen_desktop.data.database import Database
+from imagen_desktop.utils.debug_logger import logger
 
 T = TypeVar('T')
 
 class BaseRepository:
     """Base repository with common CRUD operations."""
     
-    def __init__(self, session_factory: sessionmaker):
-        self.session_factory = session_factory
+    def __init__(self, database: Database):
+        """Initialize repository with database connection.
+        
+        Args:
+            database: Database instance for data access
+        """
+        self.database = database
     
     def _get_session(self) -> Session:
-        """Get a new session from the factory."""
-        return self.session_factory()
+        """Get a new session from the database."""
+        return self.database.get_session()
     
     def add(self, model: T) -> Optional[T]:
         """Add a new model instance to the database."""

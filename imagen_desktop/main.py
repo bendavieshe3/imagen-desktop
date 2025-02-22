@@ -1,19 +1,39 @@
 #!/usr/bin/env python3
 import sys
+from pathlib import Path
 from PyQt6.QtWidgets import QApplication
-from .ui.main_window import MainWindow
-from .data.db_utils import init_database
-from .utils.debug_logger import logger
+
+from imagen_desktop.ui.main_window import MainWindow
+from imagen_desktop.data.database import Database
+from imagen_desktop.utils.debug_logger import logger
+
+def initialize_database() -> Database:
+    """Initialize application database."""
+    try:
+        # Set up database path
+        data_dir = Path.home() / '.imagen-desktop'
+        db_path = data_dir / 'imagen.db'
+        
+        # Create and initialize database
+        database = Database(db_path)
+        database.initialize()
+        
+        logger.info("Database initialization complete")
+        return database
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
 
 def initialize_app():
     """Initialize application components."""
     try:
-        # Initialize database and get session factory
+        # Initialize database
         logger.info("Initializing database...")
-        session_factory = init_database()
-        logger.info("Database initialization complete")
+        database = initialize_database()
         
-        return session_factory
+        return database
+        
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")
         raise
@@ -23,7 +43,7 @@ def main():
     
     try:
         # Initialize components
-        session_factory = initialize_app()
+        database = initialize_app()
         
         # Load stylesheet
         try:
@@ -34,7 +54,7 @@ def main():
             pass
         
         # Create and show main window
-        window = MainWindow(session_factory)
+        window = MainWindow(database)
         window.show()
         
         sys.exit(app.exec())
