@@ -105,21 +105,24 @@ class ProductThumbnail(QLabel):
     
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press events."""
+        # First handle the Qt mouse event
+        super().mousePressEvent(event)
+        
+        # Then handle product selection if it was a left click
         if event.button() == Qt.MouseButton.LeftButton:
             if self.product is not None:
                 try:
-                    # Emit selection event
+                    # Emit product selection event
                     logger.debug(f"Selected product {self.product.id}")
-                    event = ProductEvent(
+                    selection_event = ProductEvent(
                         event_type=ProductEventType.SELECTED,
                         product=self.product
                     )
-                    ProductEventPublisher.publish_product_event(event)
+                    ProductEventPublisher.publish_product_event(selection_event)
                 except Exception as e:
                     logger.error(f"Error handling product selection: {e}")
             else:
                 logger.error("Product not available for thumbnail")
-        super().mousePressEvent(event)
         
     def resizeEvent(self, event):
         """Handle resize events by rescaling the pixmap."""
