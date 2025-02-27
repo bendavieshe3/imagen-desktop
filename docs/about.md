@@ -53,14 +53,29 @@ Examples:
 
 A Product Factory is an implementation made available by a provider for the purpose of specifying how the provider is used for a specific generative task based on a *model*.
 
-
-Each factory implementation may have a specific inheritance hierachy that is optimised for code reuse and distinguishing *model type*, *model* and *provider* differences.
-The factory hierarchy includes:
+Each factory implementation has a specific inheritance hierarchy that is optimized for code reuse and distinguishing *model type*, *model* and *provider* differences. The factory hierarchy includes:
 
 * BaseProductFactory: Common validation and infrastructure
+  - Defines base parameter validation logic
+  - Provides common utility functions
+  - Standardizes error handling and logging
+
 * ProviderProductFactory: Provider-specific setup (e.g., ReplicateProductFactory)
+  - Handles provider authentication (e.g., API keys)
+  - Manages provider-specific client initialization
+  - Implements provider API interaction patterns
+
 * ModelTypeProductFactory: Model type specifics (e.g., ReplicateTxtToImgProductFactory)
+  - Defines common parameters for the modality
+  - Specifies output formats and handling
+  - Implements modality-specific validation
+
 * ModelSpecificFactory: Model-specific parameters (e.g., ReplicateTxtToImgFluxProductFactory)
+  - Sets model-specific parameter defaults
+  - Adds specialized parameters or constraints
+  - Provides model-specific validation rules
+
+
 
 For example, all factory implementations may shared a base factory class that provides common functionality such as validating *generation parameter set* based on a *parameter set spec*
 
@@ -102,6 +117,63 @@ Parameters can specify:
 * Interpolation capabilities
 * UI display hints
 
+
+### Implementation
+
+Each factory is responsible for:
+- Defining parameter specifications and validation rules
+- Converting generic requests to provider-specific calls
+- Providing UI hints and default values
+- Handling provider API interaction
+
+### Parameter Specifications (ParameterSetSpec)
+Each factory defines its parameters using a specification structure:
+
+```
+interface ParameterSpec {
+  required: boolean;
+  type: ParameterType;
+  default?: any;
+  hint?: string;
+  validationRules?: ValidationRules;
+  interpolation: InterpolationType;
+  uiHints?: UIHints;
+}
+```
+
+Parameters can specify:
+* Required/optional status
+* Data type and validation rules
+* Default values
+* Interpolation capabilities
+* UI display hints
+
+Examples of parameters include inference steps, guidance scale, negative prompts, and model-specific options. The specification structure allows factories to:
+- Validate parameter sets before generation
+- Guide UI construction with appropriate inputs
+- Define interpolation behavior for parameter values
+- Set sensible defaults per model/provider
+
+### Validation Rules
+
+Each parameter can define validation rules including:
+* Minimum/maximum values for numeric types
+* Pattern matching for strings
+* Enumerated valid values
+* Custom validation functions
+
+The rules ensure that generation parameter sets are valid for the specific provider, model type, and model being used.
+
+### UI Hints
+
+Factories provide UI hints through the parameter specification to help construct appropriate input forms:
+* Input control type (text, number, select, etc.)
+* Display grouping
+* Help text and tooltips
+* Whether parameter is "advanced"
+* Display order
+
+This allows the UI to dynamically adapt to different models while maintaining a consistent user experience.
 
 ## Generations
 
