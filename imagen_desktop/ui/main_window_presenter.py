@@ -1,49 +1,71 @@
 """Main window presenter coordinating other presenters."""
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Dict
 from pathlib import Path
 import requests
-from sqlalchemy.orm import sessionmaker
-from PIL import Image
 
+# Update imports to use the correct paths
 from imagen_desktop.core.models.product import Product, ProductType
-from imagen_desktop.core.models.image_generation import ImageGenerationModel
 from imagen_desktop.api.api_handler import APIHandler
-from imagen_desktop.data.repositories.image_repository import ImageRepository
+from imagen_desktop.data.database import Database
+from imagen_desktop.data.repositories.order_repository import OrderRepository
+from imagen_desktop.data.repositories.generation_repository import GenerationRepository
 from imagen_desktop.data.repositories.model_repository import ModelRepository
 from imagen_desktop.data.repositories.model_query_repository import ModelQueryRepository
 from imagen_desktop.data.repositories.product_repository import ProductRepository
-from imagen_desktop.ui.presenters import GenerationPresenter
-from imagen_desktop.utils.debug_logger import LogManager
-
-logger = LogManager.get_logger(__name__)
+from imagen_desktop.ui.event_adapter import EventAdapter
+from imagen_desktop.ui.presenters.generation_presenter import GenerationPresenter
+from imagen_desktop.utils.debug_logger import logger
 
 class MainWindowPresenter:
     """Coordinates functionality between different presenters."""
     
     def __init__(self, 
-                 session_factory: Optional[sessionmaker] = None,
+                 database: Optional[Database] = None,
                  view = None):
         """Initialize the presenter with optional database support."""
         self.view = view
-        
-        # Initialize core components
-        logger.debug("Initializing MainWindow components")
-        self.image_model = ImageGenerationModel()
-        self.api_handler = APIHandler(image_model=self.image_model)
+        self.database = database
         
         # Initialize repositories
-        if session_factory:
-            self.image_repository = ImageRepository(session_factory)
-            self.model_repository = ModelRepository(session_factory)
-            self.model_query_repository = ModelQueryRepository(session_factory)
-            self.product_repository = ProductRepository(session_factory)
+        self.order_repository = None
+        self.generation_repository = None
+        self.model_repository = None
+        self.model_query_repository = None
+        self.product_repository = None
+        
+        if database:
+            self._init_repositories()
+        
+        # Initialize event adapter
+        self.event_adapter = EventAdapter()
+        
+        # Initialize components
+        self._init_components()
+        self._connect_signals()
+    
+    def _init_repositories(self):
+        """Initialize repositories with database."""
+        try:
+            self.order_repository = OrderRepository(self.database)
+            self.generation_repository = GenerationRepository(self.database)
+            self.model_repository = ModelRepository(self.database)
+            self.model_query_repository = ModelQueryRepository(self.database)
+            self.product_repository = ProductRepository(self.database)
             logger.info("Database repositories initialized")
-        else:
-            self.image_repository = None
-            self.model_repository = None
-            self.model_query_repository = None
-            self.product_repository = None
-            logger.warning("Database storage not available")
+        except Exception as e:
+            logger.error(f"Failed to initialize repositories: {e}")
+            raise
+    
+    def _init_components(self):
+        """Initialize core components."""
+        logger.debug("Initializing MainWindow components")
+        
+        # Initialize API handler
+        self.api_handler = APIHandler(
+            order_repository=self.order_repository,
+            generation_repository=self.generation_repository,
+            product_repository=self.product_repository
+        )
         
         # Initialize feature presenters
         self.generation_presenter = GenerationPresenter(
@@ -51,23 +73,100 @@ class MainWindowPresenter:
             product_repository=self.product_repository,
             view=self.view
         )
-        
-        self._connect_signals()
     
     def _connect_signals(self):
-        """Connect API handler signals."""
-        self.api_handler.generation_started.connect(self._on_generation_started)
-        self.api_handler.generation_completed.connect(self._on_generation_completed)
-        self.api_handler.generation_failed.connect(self._on_generation_failed)
+        """Connect signals between components."""
+        # Connect event adapter signals to view components
+        if self.view and hasattr(self.view, 'generation_form'):
+            logger.debug("Connecting generation form signals")
+            
+            # Connect generation events from the event adapter to UI components
+            self.event_adapter.generation_started.connect(
+                self.view.generation_form._on_generation_started
+            )
+            
+            self.event_adapter.generation_completed.connect(
+                self.view.generation_form._on_generation_completed
+            )
+            
+            self.event_adapter.generation_failed.connect(
+                self.view.generation_form._on_generation_failed
+            )
+            
+            self.event_adapter.generation_canceled.connect(
+                self.view.generation_form._on_generation_canceled
+            )
     
-    def start_generation(self, model: str, params: dict) -> str:
-        """Start a new image generation."""
-        return self.generation_presenter.start_generation(model, params)
+    def start_generation(self, model: str, params: Dict[str, Any]) -> Optional[str]:
+        """
+        Start a new generation for the given model and parameters.
+        
+        Args:
+            model: Model identifier
+            params: Generation parameters with prompt included
+            
+        Returns:
+            Prediction ID if successful, None otherwise
+        """
+        try:
+            # Extract prompt from params for readability 
+            prompt = params.get("prompt", "")
+            if not prompt:
+                logger.warning("Empty prompt provided for generation")
+                
+            # Log the generation request
+            logger.info(
+                "Starting generation",
+                extra={
+                    'context': {
+                        'model': model,
+                        'prompt': prompt
+                    }
+                }
+            )
+            
+            # Create an order instead of directly starting a generation
+            order, prediction_id = self.api_handler.create_order(
+                model=model,
+                prompt=prompt,
+                parameters=params
+            )
+            
+            if order and prediction_id:
+                if self.view:
+                    self.view.show_status(f"Started generation for order {order.id}")
+                return prediction_id
+            else:
+                error_msg = "Failed to create order or start generation"
+                logger.error(error_msg)
+                if self.view:
+                    self.view.show_error("Generation Error", error_msg)
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to start generation: {e}")
+            if self.view:
+                self.view.show_error("Generation Error", str(e))
+            return None
     
     def _save_output_and_create_product(self, output: Any, prediction_id: str) -> Optional[Product]:
-        """Save generation output to file and create product record."""
+        """
+        Save generation output to file and create product record.
+        
+        Args:
+            output: Raw output from generation
+            prediction_id: ID of the generation
+            
+        Returns:
+            Created Product or None if creation failed
+        """
         try:
-            output_dir = Path.home() / '.replicate-desktop' / 'products'
+            if not self.product_repository:
+                logger.warning("Product repository not available")
+                return None
+                
+            # Save output to file
+            output_dir = Path.home() / '.imagen-desktop' / 'products'
             output_dir.mkdir(parents=True, exist_ok=True)
             
             # Handle FileOutput objects from Replicate
@@ -90,63 +189,30 @@ class MainWindowPresenter:
             with open(file_path, 'wb') as f:
                 f.write(data)
             
-            # Create product if repository available
-            if self.product_repository:
-                try:
-                    with Image.open(file_path) as img:
-                        width, height = img.size
-                        format = img.format.lower() if img.format else None
-                        
-                    product = self.product_repository.create_product(
-                        file_path=file_path,
-                        generation_id=prediction_id,
-                        width=width,
-                        height=height,
-                        format=format,
-                        product_type=ProductType.IMAGE
-                    )
-                    if product:
-                        return product
-                        
-                except Exception as e:
-                    logger.error(f"Failed to create product record: {e}")
-                    
-            return None
+            # Get image dimensions
+            width = None
+            height = None
+            format_name = None
+            try:
+                from PIL import Image
+                with Image.open(file_path) as img:
+                    width, height = img.size
+                    format_name = img.format.lower() if img.format else None
+            except Exception as e:
+                logger.warning(f"Failed to get image dimensions: {e}")
+            
+            # Create product record
+            product = self.product_repository.create_product(
+                file_path=file_path,
+                generation_id=prediction_id,
+                width=width,
+                height=height,
+                format=format_name,
+                product_type=ProductType.IMAGE
+            )
+            
+            return product
             
         except Exception as e:
-            logger.error("Failed to save output file", extra={'context': {'error': str(e)}})
+            logger.error(f"Failed to create product: {e}")
             return None
-    
-    def _on_generation_started(self, prediction_id: str):
-        """Handle generation started."""
-        logger.info(f"Generation started: {prediction_id}")
-        if self.view:
-            self.view.show_status("Generation started...")
-    
-    def _on_generation_completed(self, prediction_id: str, outputs: list):
-        """Handle generation completed signal."""
-        try:
-            products = []
-            
-            for output in outputs:
-                product = self._save_output_and_create_product(output, prediction_id)
-                if product:
-                    products.append(product)
-            
-            if self.view:
-                # Pass products to generation form
-                if hasattr(self.view, 'generation_form'):
-                    self.view.generation_form._on_generation_completed(prediction_id, products)
-                    
-                self.view.show_status(f"Generation completed ({len(products)} products created)")
-            
-        except Exception as e:
-            logger.error("Failed to handle generation completion", extra={'context': {'error': str(e)}})
-            if self.view:
-                self.view.show_error("Generation Error", str(e))
-    
-    def _on_generation_failed(self, prediction_id: str, error: str):
-        """Handle generation failed signal."""
-        logger.error("Generation failed", extra={'context': {'error': error}})
-        if self.view:
-            self.view.show_error("Generation Failed", error)

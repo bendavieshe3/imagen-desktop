@@ -1,7 +1,7 @@
 """Main form for image generation."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QSplitter
+    QSplitter, QMessageBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from typing import List, Any
@@ -68,12 +68,6 @@ class GenerationForm(QWidget):
         """Connect internal signals."""
         # Connect sidebar signals
         self.sidebar.generation_requested.connect(self.generation_requested.emit)
-        
-        # Connect API handler signals
-        self.api_handler.generation_started.connect(self._on_generation_started)
-        self.api_handler.generation_completed.connect(self._on_generation_completed)
-        self.api_handler.generation_failed.connect(self._on_generation_failed)
-        self.api_handler.generation_canceled.connect(self._on_generation_canceled)
     
     def _handle_product_event(self, event: ProductEvent):
         """Handle product events."""
@@ -91,51 +85,88 @@ class GenerationForm(QWidget):
     
     def _on_generation_started(self, prediction_id: str):
         """Handle generation started signal."""
-        self.current_prediction_id = prediction_id
-        self.output_display.set_status("Generating image...")
-        self.output_display.show_progress(True)
-        self._update_ui_state(True)
+        try:
+            self.current_prediction_id = prediction_id
+            self.output_display.set_status("Generating image...")
+            self.output_display.show_progress(True)
+            self._update_ui_state(True)
+            logger.debug(f"Generation started UI updated for: {prediction_id}")
+        except Exception as e:
+            logger.error(f"Error handling generation started: {e}", exc_info=True)
     
     def _on_generation_completed(self, prediction_id: str, products: List[Product]):
         """Handle generation completed signal."""
-        if prediction_id != self.current_prediction_id:
-            return
+        try:
+            if prediction_id != self.current_prediction_id:
+                logger.debug(f"Ignoring completion for non-current prediction: {prediction_id}")
+                return
 
-        self.output_display.set_status("Generation complete!")
-        self.output_display.show_progress(False)
-        self._update_ui_state(False)
-        
-        # Update displays with products
-        for product in products:
-            self.product_strip.add_product(product)
+            self.output_display.set_status("Generation complete!")
+            self.output_display.show_progress(False)
+            self._update_ui_state(False)
             
-        # Show latest product in output display
-        if products:
-            self.output_display.display_image(products[-1].file_path)
-        
-        self.current_prediction_id = None
+            # Update displays with products
+            logger.debug(f"Adding {len(products)} products to display")
+            for product in products:
+                self.product_strip.add_product(product)
+                
+            # Show latest product in output display
+            if products:
+                latest_product = products[-1]
+                logger.debug(f"Displaying latest product with file: {latest_product.file_path}")
+                self.output_display.display_image(latest_product.file_path)
+            
+            self.current_prediction_id = None
+        except Exception as e:
+            logger.error(f"Error handling generation completed: {e}", exc_info=True)
+            self._show_error_dialog("Error", f"Error displaying generation results: {str(e)}")
+            self._update_ui_state(False)
+            self.current_prediction_id = None
     
     def _on_generation_failed(self, prediction_id: str, error: str):
         """Handle generation failure."""
-        if prediction_id != self.current_prediction_id:
-            return
-            
-        self.output_display.set_status(f"Generation failed: {error}")
-        self.output_display.show_progress(False)
-        self._update_ui_state(False)
-        self.current_prediction_id = None
+        try:
+            if prediction_id != self.current_prediction_id:
+                return
+                
+            logger.error(f"Generation failed: {error}")
+            self.output_display.set_status(f"Generation failed: {error}")
+            self.output_display.show_progress(False)
+            self._update_ui_state(False)
+            self._show_error_dialog("Generation Failed", f"The generation failed: {error}")
+            self.current_prediction_id = None
+        except Exception as e:
+            logger.error(f"Error handling generation failure: {e}", exc_info=True)
+            self._update_ui_state(False)
+            self.current_prediction_id = None
     
     def _on_generation_canceled(self, prediction_id: str):
         """Handle generation cancellation."""
-        if prediction_id != self.current_prediction_id:
-            return
-            
-        self.output_display.set_status("Generation canceled")
-        self.output_display.show_progress(False)
-        self._update_ui_state(False)
-        self.current_prediction_id = None
+        try:
+            if prediction_id != self.current_prediction_id:
+                return
+                
+            self.output_display.set_status("Generation canceled")
+            self.output_display.show_progress(False)
+            self._update_ui_state(False)
+            self.current_prediction_id = None
+        except Exception as e:
+            logger.error(f"Error handling generation cancellation: {e}", exc_info=True)
+            self._update_ui_state(False)
+            self.current_prediction_id = None
+    
+    def _show_error_dialog(self, title: str, message: str):
+        """Show error dialog to the user."""
+        try:
+            QMessageBox.critical(self, title, message)
+        except Exception as e:
+            # Last resort if even showing the dialog fails
+            logger.error(f"Failed to show error dialog: {e}", exc_info=True)
     
     def closeEvent(self, event):
         """Handle view closure."""
-        ProductEventPublisher.unsubscribe_from_products(self._handle_product_event)
+        try:
+            ProductEventPublisher.unsubscribe_from_products(self._handle_product_event)
+        except Exception as e:
+            logger.error(f"Error during closeEvent: {e}", exc_info=True)
         super().closeEvent(event)

@@ -8,7 +8,7 @@ from alembic.script import ScriptDirectory
 from alembic.runtime.migration import MigrationContext
 from alembic.util.exc import CommandError
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.engine import Engine
 
@@ -139,8 +139,6 @@ class Database:
             
             # Initialize migration scripts
             script_dir = ScriptDirectory.from_config(alembic_cfg)
-            revisions = [sc.revision for sc in script_dir.walk_revisions()]
-            logger.debug(f"Available revisions: {revisions}")
             
             try:
                 # Run migrations
@@ -156,7 +154,7 @@ class Database:
                 if final_rev == initial_rev:
                     logger.warning("No migrations were applied")
                 else:
-                    logger.info(f"Successfully migrated from {initial_rev} to {final_rev}")
+                    logger.info(f"Successfully migrated from {initial_rev or 'None'} to {final_rev}")
                 
                 logger.info(f"Migration complete. Final revision: {final_rev}")
                 
@@ -170,3 +168,32 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to run migrations: {e}")
             raise
+    
+    def execute_query(self, query_text, params=None):
+        """Execute a raw SQL query using SQLAlchemy's text() construct.
+        
+        Args:
+            query_text: SQL query string
+            params: Optional parameters dictionary
+            
+        Returns:
+            Query result
+        """
+        with self.get_session() as session:
+            result = session.execute(text(query_text), params or {})
+            return result
+            
+    def check_database_health(self) -> bool:
+        """Check if database is operational.
+        
+        Returns:
+            True if database is healthy, False otherwise
+        """
+        try:
+            with self.get_session() as session:
+                # Simple query to test database connectivity
+                session.execute(text("SELECT 1"))
+                return True
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            return False

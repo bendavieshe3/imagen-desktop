@@ -1,5 +1,5 @@
 """Core product model and enums."""
-from enum import Enum, auto
+from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path

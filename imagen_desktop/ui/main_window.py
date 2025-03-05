@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
             return
             
         except Exception as e:
-            logger.error(f"Failed to initialize main window: {e}")
+            logger.error(f"Failed to initialize main window: {e}", exc_info=True)
             QMessageBox.critical(
                 self,
                 "Initialization Error",
@@ -82,17 +82,56 @@ class MainWindow(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        
+        # Connect error signal from event adapter to show errors in UI
+        if hasattr(self.presenter, 'event_adapter'):
+            self.presenter.event_adapter.error_occurred.connect(self.show_error)
     
     def _connect_signals(self):
         """Connect signals between components."""
         logger.debug("Connecting MainWindow signals")
+        # Connect the generation form's signal to our handler
         self.generation_form.generation_requested.connect(self._handle_generation_request)
+        
+        # Connect event adapter signals to UI components
+        if hasattr(self.presenter, 'event_adapter'):
+            self.presenter.event_adapter.generation_started.connect(
+                self.generation_form._on_generation_started
+            )
+            
+            self.presenter.event_adapter.generation_completed.connect(
+                self.generation_form._on_generation_completed
+            )
+            
+            self.presenter.event_adapter.generation_failed.connect(
+                self.generation_form._on_generation_failed
+            )
+            
+            self.presenter.event_adapter.generation_canceled.connect(
+                self.generation_form._on_generation_canceled
+            )
     
     def _handle_generation_request(self, model: str, params: dict):
         """Handle generation request from the form."""
         try:
-            self.presenter.start_generation(model, params)
+            if not model:
+                self.show_error("Generation Error", "No model selected")
+                return
+                
+            if not params.get("prompt", "").strip():
+                self.show_error("Generation Error", "Please enter a prompt")
+                return
+                
+            logger.info(f"Generation requested: model={model}, params={params}")
+            prediction_id = self.presenter.start_generation(model, params)
+            
+            if prediction_id:
+                self.show_status(f"Generation started: {prediction_id}")
+            else:
+                self.show_error("Generation Error", "Failed to start generation")
+                
         except Exception as e:
+            logger.error(f"Error handling generation request: {e}", exc_info=True)
             self.show_error("Generation Error", str(e))
     
     def _show_model_manager(self):
@@ -126,6 +165,7 @@ class MainWindow(QMainWindow):
     
     def show_error(self, title: str, message: str):
         """Show an error dialog."""
+        logger.error(f"Error dialog shown - {title}: {message}")
         QMessageBox.critical(self, title, message)
     
     def closeEvent(self, event):

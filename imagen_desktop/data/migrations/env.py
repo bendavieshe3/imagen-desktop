@@ -24,6 +24,12 @@ target_metadata = Base.metadata
 
 def get_url():
     """Get database URL from environment or configuration."""
+    # Get URL from alembic.ini if provided
+    url = config.get_main_option("sqlalchemy.url")
+    if url:
+        return url
+        
+    # Otherwise use default location
     data_dir = Path.home() / '.imagen-desktop'
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / 'imagen.db'
@@ -44,10 +50,12 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = get_url()
+    # Override sqlalchemy.url in the config
+    config_section = config.get_section(config.config_ini_section) or {}
+    config_section["sqlalchemy.url"] = get_url()
+    
     connectable = engine_from_config(
-        configuration,
+        config_section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

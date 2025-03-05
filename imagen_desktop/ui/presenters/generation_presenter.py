@@ -2,12 +2,11 @@
 from typing import Dict, Optional
 from pathlib import Path
 
-from imagen_desktop.core.models.image_generation import GenerationStatus
+# Update import to use the proper domain model
+from imagen_desktop.core.models.generation import Generation, GenerationStatus
 from imagen_desktop.data.repositories.product_repository import ProductRepository
 from imagen_desktop.api.api_handler import APIHandler
-from imagen_desktop.utils.debug_logger import LogManager
-
-logger = LogManager.get_logger(__name__)
+from imagen_desktop.utils.debug_logger import logger
 
 class GenerationPresenter:
     """Handles image generation lifecycle and coordinates with storage."""

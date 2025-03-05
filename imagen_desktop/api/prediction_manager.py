@@ -1,6 +1,7 @@
 """Manages prediction lifecycle and polling."""
 import threading
 import time
+import traceback
 from typing import Any, List
 from PyQt6.QtCore import QObject, pyqtSignal
 from ..utils.debug_logger import logger
@@ -35,7 +36,10 @@ class PredictionManager(QObject):
     def _poll_prediction(self, prediction_id: str):
         """Poll prediction status until completion."""
         try:
-            while prediction_id in self._active_predictions:
+            max_attempts = 60  # Maximum polling attempts (60 seconds)
+            attempt = 0
+            
+            while prediction_id in self._active_predictions and attempt < max_attempts:
                 try:
                     prediction = self.client.get_prediction(prediction_id)
                     
@@ -43,9 +47,12 @@ class PredictionManager(QObject):
                         if prediction.output is not None:
                             normalized_output = self._normalize_output(prediction.output)
                             self.generation_completed.emit(prediction_id, normalized_output)
+                        else:
+                            self.generation_completed.emit(prediction_id, [])
                         break
                     elif prediction.status == 'failed':
-                        self.generation_failed.emit(prediction_id, prediction.error or "Unknown error")
+                        error_msg = prediction.error or "Unknown error"
+                        self.generation_failed.emit(prediction_id, error_msg)
                         break
                     elif prediction.status == 'canceled':
                         self.generation_canceled.emit(prediction_id)
@@ -53,10 +60,25 @@ class PredictionManager(QObject):
                     
                     # Wait before next poll
                     time.sleep(1)
+                    attempt += 1
                     
                 except Exception as e:
+                    stack_trace = traceback.format_exc()
+                    logger.error(f"Error polling prediction {prediction_id}: {e}\n{stack_trace}")
                     self.generation_failed.emit(prediction_id, str(e))
                     break
+                    
+            # If we've reached max attempts, emit a timeout error
+            if attempt >= max_attempts and prediction_id in self._active_predictions:
+                self.generation_failed.emit(
+                    prediction_id, 
+                    "Timeout waiting for generation to complete. Check the Replicate dashboard."
+                )
+                
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            logger.error(f"Error in poll thread for {prediction_id}: {e}\n{stack_trace}")
+            self.generation_failed.emit(prediction_id, f"Polling error: {str(e)}")
         finally:
             # Always clean up
             if prediction_id in self._active_predictions:
@@ -68,6 +90,7 @@ class PredictionManager(QObject):
         Returns the prediction ID.
         """
         try:
+            logger.debug(f"Starting prediction for model {model_identifier}")
             prediction = self.client.create_prediction(model_identifier, **params)
             
             # Store thread for cancellation
@@ -88,8 +111,9 @@ class PredictionManager(QObject):
             return prediction.id
             
         except Exception as e:
+            stack_trace = traceback.format_exc()
             error_msg = f"Failed to start prediction: {str(e)}"
-            logger.error(error_msg)
+            logger.error(f"{error_msg}\n{stack_trace}")
             self.generation_failed.emit("", error_msg)
             raise
     
@@ -102,6 +126,7 @@ class PredictionManager(QObject):
                 self.generation_canceled.emit(prediction_id)
                 
             except Exception as e:
+                stack_trace = traceback.format_exc()
                 error_msg = f"Failed to cancel prediction: {str(e)}"
-                logger.error(error_msg)
+                logger.error(f"{error_msg}\n{stack_trace}")
                 self.generation_failed.emit(prediction_id, error_msg)

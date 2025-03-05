@@ -1,12 +1,13 @@
-"""SQLAlchemy models and database initialization."""
+"""SQLAlchemy models for database schema."""
 from datetime import datetime
-from pathlib import Path
 from typing import Optional, Dict, Any
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, JSON, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.sqlite import JSON
 
-Base = declarative_base()
+# Import base class
+from imagen_desktop.data.schema import Base
 
 class Order(Base):
     """Model for image generation orders."""
@@ -23,6 +24,9 @@ class Order(Base):
     # Relationships
     project = relationship("Project", back_populates="orders")
     generations = relationship("Generation", back_populates="order", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Order id={self.id}, status={self.status}>"
 
 class Generation(Base):
     """Model for image generation records."""
@@ -42,6 +46,9 @@ class Generation(Base):
     order = relationship("Order", back_populates="generations")
     products = relationship("Product", back_populates="generation", cascade="all, delete-orphan")
     tags = relationship("GenerationTag", back_populates="generation", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Generation id={self.id}, status={self.status}>"
 
 class Product(Base):
     """Model for individual generated outputs."""
@@ -63,6 +70,9 @@ class Product(Base):
     generation = relationship("Generation", back_populates="products")
     collections = relationship("CollectionProduct", back_populates="product", cascade="all, delete-orphan")
     tags = relationship("ProductTag", back_populates="product", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Product id={self.id}, type={self.product_type}>"
 
 class Project(Base):
     """Model for organizing orders."""
@@ -76,6 +86,9 @@ class Project(Base):
     
     # Relationships
     orders = relationship("Order", back_populates="project")
+    
+    def __repr__(self):
+        return f"<Project id={self.id}, name={self.name}>"
 
 class Model(Base):
     """Model for caching available Replicate models."""
@@ -87,6 +100,9 @@ class Model(Base):
     description = Column(Text)
     model_metadata = Column(JSON, nullable=False, default=dict)
     last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<Model identifier={self.identifier}>"
 
 class Tag(Base):
     """Model for tags."""
@@ -98,6 +114,9 @@ class Tag(Base):
     # Relationships
     generations = relationship("GenerationTag", back_populates="tag")
     products = relationship("ProductTag", back_populates="tag")
+    
+    def __repr__(self):
+        return f"<Tag id={self.id}, name={self.name}>"
 
 class Collection(Base):
     """Model for user-created collections."""
@@ -110,6 +129,9 @@ class Collection(Base):
     
     # Relationships
     products = relationship("CollectionProduct", back_populates="collection")
+    
+    def __repr__(self):
+        return f"<Collection id={self.id}, name={self.name}>"
 
 class CollectionProduct(Base):
     """Association table for collections and products."""
@@ -122,6 +144,9 @@ class CollectionProduct(Base):
     # Relationships
     collection = relationship("Collection", back_populates="products")
     product = relationship("Product", back_populates="collections")
+    
+    def __repr__(self):
+        return f"<CollectionProduct collection_id={self.collection_id}, product_id={self.product_id}>"
 
 class GenerationTag(Base):
     """Association table for generations and tags."""
@@ -133,6 +158,9 @@ class GenerationTag(Base):
     # Relationships
     generation = relationship("Generation", back_populates="tags")
     tag = relationship("Tag", back_populates="generations")
+    
+    def __repr__(self):
+        return f"<GenerationTag generation_id={self.generation_id}, tag_id={self.tag_id}>"
 
 class ProductTag(Base):
     """Association table for products and tags."""
@@ -144,9 +172,6 @@ class ProductTag(Base):
     # Relationships
     product = relationship("Product", back_populates="tags")
     tag = relationship("Tag", back_populates="products")
-
-def init_db(db_path: Path) -> sessionmaker:
-    """Initialize the database and return a session factory."""
-    engine = create_engine(f'sqlite:///{db_path}')
-    Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine)
+    
+    def __repr__(self):
+        return f"<ProductTag product_id={self.product_id}, tag_id={self.tag_id}>"
