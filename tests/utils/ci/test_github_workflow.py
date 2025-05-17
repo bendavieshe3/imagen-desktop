@@ -30,16 +30,26 @@ def test_github_workflow_required_fields():
     """Test that GitHub workflow file has required fields."""
     workflow_path = Path(".github/workflows/python-tests.yml")
     with open(workflow_path, 'r') as f:
-        workflow = yaml.safe_load(f)
+        workflow_content = f.read()
+        workflow = yaml.safe_load(workflow_content)
+        
+        # Print the workflow for debugging
+        print(f"Workflow keys: {list(workflow.keys())}")
         
         # Check required top-level fields
         assert 'name' in workflow, "Workflow missing 'name' field"
-        assert 'on' in workflow, "Workflow missing 'on' field"
+        
+        # Handle potential YAML parsing issue with 'on' being a reserved word
+        assert 'on' in workflow or True in workflow, "Workflow missing trigger field"
+        
+        # Get the 'on' field regardless of key type
+        on_field = workflow.get('on', workflow.get(True, {}))
+        
         assert 'jobs' in workflow, "Workflow missing 'jobs' field"
         
         # Check that workflow runs on push and PR to master
-        assert 'push' in workflow['on'], "Workflow should run on push"
-        assert 'pull_request' in workflow['on'], "Workflow should run on pull_request"
+        assert 'push' in on_field, "Workflow should run on push"
+        assert 'pull_request' in on_field, "Workflow should run on pull_request"
         
         # Check that test job exists and runs on latest Ubuntu
         assert 'test' in workflow['jobs'], "Workflow missing 'test' job"
