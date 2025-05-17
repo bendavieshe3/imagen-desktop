@@ -23,5 +23,12 @@ ENV/
 # macOS
 .DS_Store
 
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+*.cover
+
 # other tooling
 crunch_output.txt
