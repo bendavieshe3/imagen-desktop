@@ -61,6 +61,9 @@ if [[ -f "TODO.md" ]]; then
   echo "📋 TODO.md exists."
   grep -n "^##" TODO.md | head -n 5
   TODO_COUNT=$(grep -c "- " TODO.md | tr -d '[:space:]')
+  if [[ -z "$TODO_COUNT" ]]; then
+    TODO_COUNT="0"
+  fi
   echo "Found approximately $TODO_COUNT TODO items."
 else
   echo "❓ TODO.md not found."
@@ -159,7 +162,8 @@ fi
 if [[ -d "htmlcov" ]]; then
   echo "📊 Coverage report available at htmlcov/index.html"
   if [[ -f "htmlcov/index.html" ]]; then
-    COVERAGE=$(grep -o "[0-9]\+%" htmlcov/index.html | head -1)
+    # Use awk for more portable parsing
+    COVERAGE=$(awk '/[0-9]+%/ {match($0, /[0-9]+%/); print substr($0, RSTART, RLENGTH); exit}' htmlcov/index.html 2>/dev/null || echo "?%")
     echo "   Current coverage: $COVERAGE"
   fi
 fi
@@ -172,3 +176,6 @@ else
   echo "⚠️  Codebase needs attention - see details above."
 fi
 echo "========================================================="
+
+# End of script
+echo -e "\nScript completed successfully."
