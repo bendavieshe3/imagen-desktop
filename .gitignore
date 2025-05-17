@@ -33,6 +33,9 @@ coverage.xml
 # other tooling
 crunch_output.txt
 
+# Local configuration files
+*.local.*
+
 # Claude Code - exclude settings but include commands
 .claude/*
 !.claude/commands/
