@@ -1,0 +1,39 @@
+[run]
+source = imagen_desktop
+omit =
+    # Omit virtual environment
+    */venv/*
+    # Omit test files
+    */tests/*
+    # Omit migration scripts
+    */migrations/*
+    # Omit setup.py
+    setup.py
+
+[report]
+# Exclude lines with pragmas
+exclude_lines = 
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError
+
+# Set minimum coverage thresholds
+# These are set conservatively at first and can be increased over time
+[coverage:report]
+precision = 2
+fail_under = 50
+show_missing = True
+
+# Set per-module coverage thresholds
+# Modules with strict requirements
+[coverage:paths]
+# Core domain models should have high test coverage
+imagen_desktop/core/models/ = 90
+# API client modules should have high test coverage
+imagen_desktop/api/ = 80
+# Other modules can have lower coverage to start
+imagen_desktop/data/repositories/ = 60
