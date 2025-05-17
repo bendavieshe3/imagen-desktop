@@ -42,7 +42,8 @@ class TestDatabaseInitialization(unittest.TestCase):
         database = initialize_database(self.db_path)
         
         # Check that expected tables exist
-        inspector = database.engine.inspect()
+        from sqlalchemy import inspect
+        inspector = inspect(database.engine)
         tables = inspector.get_table_names()
         
         # Verify some core tables we expect to exist
