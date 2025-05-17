@@ -44,6 +44,19 @@ python -m imagen_desktop.main
 
 ## Development Workflow
 
+### Planning Significant Changes
+For any significant changes to source code (excluding tests and bug fixes):
+
+1. Always create a detailed plan before implementation
+2. Present the plan to the user for approval before making changes
+3. Include:
+   - Overview of the proposed changes
+   - Files that will be modified
+   - New components or modules that will be created
+   - Impact on existing functionality
+   - Implementation approach and design patterns
+4. Wait for explicit approval before proceeding with implementation
+
 ### Test-Driven Development
 Always follow a test-driven development approach:
 
