@@ -1,7 +1,7 @@
 # Imagen Desktop Project
 
 ## Project Overview
-Imagen Desktop is a PyQt6-based desktop application for running generative AI models, with a focus on image generation using Replicate's API.
+Imagen Desktop is a PyQt6-based desktop application for running generative AI models, with a focus on image generation using Replicate's API. For detailed information about features and concepts, see [About](./docs/about.md).
 
 ## Project Structure
 - `/imagen_desktop/` - Main package directory
@@ -39,29 +39,81 @@ python -m imagen_desktop.main
 ```
 
 ## Development Workflow
-1. Make sure to set up your Replicate API key in a `.env` file:
+
+### Test-Driven Development
+Always follow a test-driven development approach:
+
+1. Write tests first that describe the expected behavior
+2. Run the tests to confirm they fail
+3. Implement the minimum code needed to pass the tests
+4. Refactor while ensuring tests continue to pass
+5. Repeat
+
+See [Tests README](./tests/README.md) for detailed testing guidelines and 
+[TDD Guide](./docs/test_driven_development.md) for specific patterns and examples.
+
+### API Key Setup
+Make sure to set up your Replicate API key in a `.env` file:
 ```
 REPLICATE_API_TOKEN=your_api_token_here
 ```
-   
-   Alternatively, you can store it in a config file:
-   ```json
-   // at ~/.imagen-desktop/config.json
-   {
-     "api_key": "your_api_token_here"
-   }
-   ```
 
-2. Always run database migrations before starting development:
+Alternatively, you can store it in a config file:
+```json
+// at ~/.imagen-desktop/config.json
+{
+  "api_key": "your_api_token_here"
+}
+```
+
+### Database Migrations
+Always run database migrations before starting development:
 ```bash
 alembic upgrade head
 ```
 
-3. When making database schema changes:
+When making database schema changes:
 ```bash
 alembic revision --autogenerate -m "Description of changes"
 alembic upgrade head
 ```
+
+## Source Control Workflow
+
+### GitHub Flow
+1. Create feature branches from `master` with descriptive names:
+   ```bash
+   git checkout -b feature/add-dark-mode
+   ```
+
+2. Commit frequently with atomic changes:
+   ```bash
+   git add .
+   git commit -m "Add toggle button for dark mode"
+   ```
+
+3. Push to GitHub and create a Pull Request (PR):
+   ```bash
+   git push -u origin feature/add-dark-mode
+   # Then create PR via GitHub UI or CLI
+   ```
+
+4. Ensure CI passes before merging (once GitHub Actions are set up)
+5. Get code review from at least one team member
+6. Squash and merge when ready
+
+### Recommended GitHub Actions (Future)
+- Automated tests on PRs
+- Type checking with mypy
+- Code formatting with black
+- Linting with flake8
+- Coverage reports
+
+### Commit Guidelines
+- Write descriptive commit messages in present tense
+- Start with a verb (Add, Fix, Update, Refactor, etc.)
+- Reference issue numbers when applicable
+- Keep commits focused on single logical changes
 
 ## Cost Considerations
 This application connects to Replicate's API for generating images. Please be aware:
@@ -83,16 +135,29 @@ python -m imagen_desktop.main
 # Run all tests
 python -m pytest
 
-# Run tests with coverage report
-python -m pytest --cov=imagen_desktop
+# Run tests with coverage report (already set in pytest.ini)
+python -m pytest
 
-# Run only specific test categories
+# Run specific test categories
 python -m pytest -m unit  # Unit tests
-python -m pytest -m integration  # Integration tests
+python -m pytest -m integration  # Integration tests 
 python -m pytest -m ui  # UI tests
+python -m pytest -m api  # API tests
 
 # Or use the convenience script
 ./run_tests.sh
+```
+
+### Code Quality
+```bash
+# Run type checking (requires mypy)
+mypy imagen_desktop
+
+# Run linting (requires flake8)
+flake8 imagen_desktop
+
+# Run formatting (requires black)
+black imagen_desktop
 ```
 
 ### Database Migrations
@@ -103,24 +168,23 @@ alembic upgrade head
 ## Coding Standards
 - Follow PEP 8 style guidelines
 - Use type hints for function parameters and return values
-- Use docstrings for classes and public methods
-- Use domain-driven design principles
+- Use docstrings for classes and public methods (Google style)
+- Write unit tests for all new functionality
+- Maintain test coverage above 80%
+- Use domain-driven design principles as outlined in [About](./docs/about.md)
 - Prefer composition over inheritance
 - Follow the presenter-first architecture for UI components
 
-## Git Workflow
-- Create feature branches from master
-- Keep commits focused on single logical changes
-- Use descriptive commit messages with present tense verbs
-- Run tests before pushing changes
-- Rebase feature branches on master before merging
+## Requirements and Specifications
+See [Requirements](./docs/requirements.md) for detailed project requirements.
 
 ## TODO Items
 See [TODO.md](./TODO.md) for current tasks.
 
-## Stack
+## Tech Stack
 - UI: PyQt6
 - API: Replicate client
 - Database: SQLAlchemy with SQLite
 - Migration: Alembic
+- Testing: pytest
 - Image Processing: Pillow
