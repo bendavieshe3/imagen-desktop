@@ -2,6 +2,11 @@
 # code-status.sh - Script to check the status of the codebase
 # Usage: ./scripts/code-status.sh
 
+# Disable pagers for git and other commands
+export GIT_PAGER=cat
+export PAGER=cat
+export LESS=FRX
+
 # Print header
 echo "====================== CODE STATUS ======================"
 echo "Time: $(date)"
@@ -51,7 +56,7 @@ fi
 # Check recent commits
 echo -e "\n🔄 RECENT COMMITS:"
 echo "-----------------------------------------------------------"
-git log --oneline -n 5
+git --no-pager log --oneline -n 5
 echo "..."
 
 # Check TODOs
@@ -59,8 +64,9 @@ echo -e "\n📝 TODO ITEMS:"
 echo "-----------------------------------------------------------"
 if [[ -f "TODO.md" ]]; then
   echo "📋 TODO.md exists."
-  grep -n "^##" TODO.md | head -n 5
-  TODO_COUNT=$(grep -c "- " TODO.md | tr -d '[:space:]')
+  # Use cat to avoid any paging
+  { cat TODO.md | grep -n "^##" | head -n 5; } 2>/dev/null
+  TODO_COUNT=$(grep -c "- " TODO.md 2>/dev/null | tr -d '[:space:]')
   if [[ -z "$TODO_COUNT" ]]; then
     TODO_COUNT="0"
   fi
@@ -77,6 +83,9 @@ echo "📊 Found approximately $CODE_TODOS TODO comments in code."
 echo -e "\n🔍 GITHUB ISSUES:"
 echo "-----------------------------------------------------------"
 if command -v gh > /dev/null; then
+  # Disable paging for gh command explicitly
+  export GH_PAGER=cat
+  
   # Get repo info
   REPO_INFO=$(gh repo view --json nameWithOwner 2>/dev/null) || REPO_INFO=""
   
