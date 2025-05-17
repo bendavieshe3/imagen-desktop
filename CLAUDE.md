@@ -80,7 +80,19 @@ python -m imagen_desktop.main
 
 ### Testing
 ```bash
-python -m unittest discover -s tests
+# Run all tests
+python -m pytest
+
+# Run tests with coverage report
+python -m pytest --cov=imagen_desktop
+
+# Run only specific test categories
+python -m pytest -m unit  # Unit tests
+python -m pytest -m integration  # Integration tests
+python -m pytest -m ui  # UI tests
+
+# Or use the convenience script
+./run_tests.sh
 ```
 
 ### Database Migrations
@@ -104,7 +116,7 @@ alembic upgrade head
 - Rebase feature branches on master before merging
 
 ## TODO Items
-See [TODO.md](/Volumes/Ceres/data/Projects/imagen/TODO.md) for current tasks.
+See [TODO.md](./TODO.md) for current tasks.
 
 ## Stack
 - UI: PyQt6
