@@ -60,14 +60,14 @@ echo "-----------------------------------------------------------"
 if [[ -f "TODO.md" ]]; then
   echo "📋 TODO.md exists."
   grep -n "^##" TODO.md | head -n 5
-  TODO_COUNT=$(grep -c "- " TODO.md)
+  TODO_COUNT=$(grep -c "- " TODO.md | tr -d '[:space:]')
   echo "Found approximately $TODO_COUNT TODO items."
 else
   echo "❓ TODO.md not found."
 fi
 
 # Check for TODOs in code
-CODE_TODOS=$(grep -r "TODO" --include="*.py" --include="*.md" . | wc -l)
+CODE_TODOS=$(grep -r "TODO" --include="*.py" --include="*.md" . 2>/dev/null | wc -l | tr -d '[:space:]')
 echo "📊 Found approximately $CODE_TODOS TODO comments in code."
 
 # Check GitHub issues if gh CLI is installed
@@ -78,24 +78,37 @@ if command -v gh > /dev/null; then
   REPO_INFO=$(gh repo view --json nameWithOwner 2>/dev/null) || REPO_INFO=""
   
   if [[ -n "$REPO_INFO" ]]; then
-    # Count open issues
-    OPEN_ISSUES=$(gh issue list --state open --json number | jq length)
-    echo "📊 Open issues: $OPEN_ISSUES"
-    
-    if [[ $OPEN_ISSUES -gt 0 ]]; then
+    # Check if jq is installed
+    if command -v jq > /dev/null; then
+      # Count open issues
+      OPEN_ISSUES=$(gh issue list --state open --json number 2>/dev/null | jq length 2>/dev/null) || OPEN_ISSUES="?"
+      echo "📊 Open issues: $OPEN_ISSUES"
+      
+      if [[ $OPEN_ISSUES != "?" && $OPEN_ISSUES -gt 0 ]]; then
+        echo "📎 Recent open issues:"
+        gh issue list --state open --limit 5 --json number,title,updatedAt \
+          --template '{{range .}}#{{.number}} {{.title}} (Updated: {{timeago .updatedAt}})\n{{end}}' 2>/dev/null
+      fi
+      
+      # Count PRs
+      OPEN_PRS=$(gh pr list --state open --json number 2>/dev/null | jq length 2>/dev/null) || OPEN_PRS="?"
+      echo -e "\n📊 Open pull requests: $OPEN_PRS"
+      
+      if [[ $OPEN_PRS != "?" && $OPEN_PRS -gt 0 ]]; then
+        echo "📎 Recent open PRs:"
+        gh pr list --state open --limit 5 --json number,title,updatedAt \
+          --template '{{range .}}#{{.number}} {{.title}} (Updated: {{timeago .updatedAt}})\n{{end}}' 2>/dev/null
+      fi
+    else
+      echo "⚠️  jq is not installed. Limited GitHub info available."
+      echo "   Install with: brew install jq"
+      
+      # Fallback to simpler output without jq
       echo "📎 Recent open issues:"
-      gh issue list --state open --limit 5 --json number,title,updatedAt \
-        --template '{{range .}}#{{.number}} {{.title}} (Updated: {{timeago .updatedAt}})\n{{end}}'
-    fi
-    
-    # Count PRs
-    OPEN_PRS=$(gh pr list --state open --json number | jq length)
-    echo -e "\n📊 Open pull requests: $OPEN_PRS"
-    
-    if [[ $OPEN_PRS -gt 0 ]]; then
-      echo "📎 Recent open PRs:"
-      gh pr list --state open --limit 5 --json number,title,updatedAt \
-        --template '{{range .}}#{{.number}} {{.title}} (Updated: {{timeago .updatedAt}})\n{{end}}'
+      gh issue list --state open --limit 5 2>/dev/null
+      
+      echo -e "\n📎 Recent open PRs:"
+      gh pr list --state open --limit 5 2>/dev/null
     fi
   else
     echo "❓ Not connected to a GitHub repository or gh CLI not authenticated."
@@ -109,15 +122,34 @@ fi
 echo -e "\n🧪 TEST STATUS:"
 echo "-----------------------------------------------------------"
 if [[ -d "tests" ]]; then
-  TEST_COUNT=$(find tests -name "test_*.py" | wc -l)
+  TEST_COUNT=$(find tests -name "test_*.py" | wc -l | tr -d '[:space:]')
   echo "📊 Found $TEST_COUNT test files."
   
-  # Check if pytest is available
-  if python -m pytest --version > /dev/null 2>&1; then
-    echo "✅ pytest is available."
-    echo "   Run tests with: python -m pytest"
+  # Check if python is available
+  if command -v python3 > /dev/null; then
+    echo "✅ Python is available: $(python3 --version 2>&1)"
+    
+    # Check if pytest is available
+    if python3 -m pytest --version > /dev/null 2>&1; then
+      echo "✅ pytest is available."
+      echo "   Run tests with: python3 -m pytest"
+    else
+      echo "⚠️  pytest doesn't seem to be installed or available."
+      echo "   Install with: pip install pytest"
+    fi
+  elif command -v python > /dev/null; then
+    echo "✅ Python is available: $(python --version 2>&1)"
+    
+    # Check if pytest is available
+    if python -m pytest --version > /dev/null 2>&1; then
+      echo "✅ pytest is available."
+      echo "   Run tests with: python -m pytest"
+    else
+      echo "⚠️  pytest doesn't seem to be installed or available."
+      echo "   Install with: pip install pytest"
+    fi
   else
-    echo "⚠️  pytest doesn't seem to be installed or available."
+    echo "⚠️  Python doesn't seem to be installed or available."
   fi
 else
   echo "❓ No tests directory found."
