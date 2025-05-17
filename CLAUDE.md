@@ -1,5 +1,9 @@
 # Imagen Desktop Project
 
+## IMPORTANT
+- Always activate the virtual environment before running commands: `source ./venv/bin/activate` (macOS/Linux) or `./venv/Scripts/activate` (Windows)
+- We shouldn't commit code before running or testing it
+
 ## Project Overview
 Imagen Desktop is a PyQt6-based desktop application for running generative AI models, with a focus on image generation using Replicate's API. For detailed information about features and concepts, see [About](./docs/about.md).
 
