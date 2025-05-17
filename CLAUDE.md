@@ -169,6 +169,33 @@ black imagen_desktop
 alembic upgrade head
 ```
 
+### Project Status
+```bash
+# Get comprehensive codebase status
+./scripts/code-status.sh
+
+# Check GitHub workflow configuration
+python -m pytest tests/utils/ci/ -v
+
+# Demonstrate GitHub workflow process
+python scripts/github_workflow_demo.py
+```
+
+### Aliases
+We provide aliases for common commands in `.claude-aliases`. To use them:
+
+1. Add the following to your `~/.bashrc` or `~/.zshrc`:
+   ```bash
+   [ -f /path/to/imagen/.claude-aliases ] && source /path/to/imagen/.claude-aliases
+   ```
+
+2. Available aliases:
+   - `code-status`: Check codebase status
+   - `run-app`: Run the application
+   - `run-tests`: Run all tests
+   - `run-coverage`: Run tests with coverage
+   - `check-workflow`: Validate GitHub workflow configuration
+
 ## Coding Standards
 - Follow PEP 8 style guidelines
 - Use type hints for function parameters and return values

@@ -1,0 +1,12 @@
+# Claude Code aliases for Imagen project
+# Add this to your ~/.bashrc or ~/.zshrc:
+# [ -f /path/to/Imagen/.claude-aliases ] && source /path/to/Imagen/.claude-aliases
+
+# Project status checker
+alias code-status="./scripts/code-status.sh"
+
+# Other useful shortcuts
+alias run-app="python -m imagen_desktop.main"
+alias run-tests="python -m pytest"
+alias run-coverage="python -m pytest --cov=imagen_desktop --cov-report=html"
+alias check-workflow="python -m pytest tests/utils/ci/ -v"
