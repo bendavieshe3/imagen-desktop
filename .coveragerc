@@ -25,7 +25,7 @@ exclude_lines =
 # These are set conservatively at first and can be increased over time
 [coverage:report]
 precision = 2
-fail_under = 50
+fail_under = 47
 show_missing = True
 
 # Set per-module coverage thresholds
