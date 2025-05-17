@@ -102,17 +102,21 @@ alembic upgrade head
 5. Get code review from at least one team member
 6. Squash and merge when ready
 
-### Recommended GitHub Actions (Future)
+For a complete workflow including issue resolution and PR management, see the [GitHub Workflow Guide](./docs/github_workflow.md).
+
+### GitHub Actions Configuration
 - Automated tests on PRs
 - Type checking with mypy
 - Code formatting with black
 - Linting with flake8
 - Coverage reports
 
+See `.github/workflows/python-tests.yml` for the current CI configuration.
+
 ### Commit Guidelines
 - Write descriptive commit messages in present tense
 - Start with a verb (Add, Fix, Update, Refactor, etc.)
-- Reference issue numbers when applicable
+- Reference issue numbers when applicable (e.g., "Fix gallery view #123")
 - Keep commits focused on single logical changes
 
 ## Cost Considerations
