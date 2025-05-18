@@ -141,7 +141,7 @@ This document outlines the complete workflow for using GitHub with the Imagen De
    ```
 
 4. **Mark Related TODOs as Completed**:
-   - Update TODO.md
+   - Update docs/other_tasks.md
    - Release milestone items if applicable
 
 ## Automated Validation

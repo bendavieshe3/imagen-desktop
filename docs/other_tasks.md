@@ -38,5 +38,12 @@ This is a scratchpad of tasks not yet added to Github issues
 - Move to main window (not separate)
 - Fix next/previous buttons
 
+## Testing
+
+- Fix UI test failures:
+  - Update tests/ui/features/test_gallery_view.py - QAction import error from PyQt6.QtWidgets
+  - Update tests/ui/features/test_model_selection.py - ModelManagerDialog import error
+  - Increase test coverage to meet minimum requirements
+
 ## Advanced
 

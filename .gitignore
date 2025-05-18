@@ -36,6 +36,7 @@ crunch_output.txt
 # Local configuration files
 *.local.*
 
-# Claude Code - exclude settings but include commands
+# Claude Code - include specific directories but exclude settings
 .claude/*
 !.claude/commands/
+!.claude/way-of-work/

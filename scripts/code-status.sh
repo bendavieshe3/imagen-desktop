@@ -62,17 +62,17 @@ echo "..."
 # Check TODOs
 echo -e "\n📝 TODO ITEMS:"
 echo "-----------------------------------------------------------"
-if [[ -f "TODO.md" ]]; then
-  echo "📋 TODO.md exists."
+if [[ -f "docs/other_tasks.md" ]]; then
+  echo "📋 docs/other_tasks.md exists."
   # Use cat to avoid any paging
-  { cat TODO.md | grep -n "^##" | head -n 5; } 2>/dev/null
-  TODO_COUNT=$(grep -c "- " TODO.md 2>/dev/null | tr -d '[:space:]')
+  { cat docs/other_tasks.md | grep -n "^##" | head -n 5; } 2>/dev/null
+  TODO_COUNT=$(grep -c "- " docs/other_tasks.md 2>/dev/null | tr -d '[:space:]')
   if [[ -z "$TODO_COUNT" ]]; then
     TODO_COUNT="0"
   fi
   echo "Found approximately $TODO_COUNT TODO items."
 else
-  echo "❓ TODO.md not found."
+  echo "❓ docs/other_tasks.md not found."
 fi
 
 # Check for TODOs in code
