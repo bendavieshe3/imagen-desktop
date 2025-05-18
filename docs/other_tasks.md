@@ -1,5 +1,7 @@
 
-# TODO
+# Other Tasks
+
+This is a scratchpad of tasks not yet added to Github issues
 
 ## General
 

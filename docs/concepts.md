@@ -1,14 +1,6 @@
-# About Imagen
+# Imagen Concepts
 
 Imagen is a desktop application for running generative AI models, with a focus on image generation.
-
-# Features
-
-* Support for multiple AI model providers
-* Flexible parameter interpolation and smart token expansion
-* Project organization and management
-* Product gallery and analysis
-* Template and favorites system
 
 # Entities and Concepts
 
@@ -111,37 +103,6 @@ interface ParameterSpec {
 
 Parameters can specify:
 
-* Required/optional status
-* Data type and validation rules
-* Default values
-* Interpolation capabilities
-* UI display hints
-
-
-### Implementation
-
-Each factory is responsible for:
-- Defining parameter specifications and validation rules
-- Converting generic requests to provider-specific calls
-- Providing UI hints and default values
-- Handling provider API interaction
-
-### Parameter Specifications (ParameterSetSpec)
-Each factory defines its parameters using a specification structure:
-
-```
-interface ParameterSpec {
-  required: boolean;
-  type: ParameterType;
-  default?: any;
-  hint?: string;
-  validationRules?: ValidationRules;
-  interpolation: InterpolationType;
-  uiHints?: UIHints;
-}
-```
-
-Parameters can specify:
 * Required/optional status
 * Data type and validation rules
 * Default values
