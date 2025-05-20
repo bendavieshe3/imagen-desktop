@@ -84,7 +84,8 @@ We follow test-driven development (TDD) principles:
 - Keep functions small and focused
 - Write unit tests for new code
 
-
+## Architectural Guidance
+- Always pay down architectural debt sooner to reduce code debt
 
 See [Tests README](./tests/README.md) for detailed testing guidelines and 
 [TDD Guide](./docs/test_driven_development.md) for specific patterns and examples.
@@ -104,6 +105,3 @@ This application connects to Replicate's API for generating images. Please be aw
 2. Features are implemented by enhancements recorded in Github issues
 3. Bugs are recorded in GitHub issues
 4. Tasks and todos not yet managed in GitHub are collected in [other_tasks.md](./docs/other_tasks.md)
-
-
-
