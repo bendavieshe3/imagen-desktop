@@ -1,4 +1,4 @@
-"""Main form for image generation."""
+"""Main form for product generation."""
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QMessageBox
@@ -76,7 +76,7 @@ class GenerationForm(QWidget):
     
     def _on_product_clicked(self, product: Product):
         """Handle product selection."""
-        self.output_display.display_image(product.file_path)
+        self.output_display.display_product(product.file_path)
     
     def _update_ui_state(self, generating: bool):
         """Update UI elements based on generation state."""
@@ -87,7 +87,7 @@ class GenerationForm(QWidget):
         """Handle generation started signal."""
         try:
             self.current_prediction_id = prediction_id
-            self.output_display.set_status("Generating image...")
+            self.output_display.set_status("Generating product...")
             self.output_display.show_progress(True)
             self._update_ui_state(True)
             logger.debug(f"Generation started UI updated for: {prediction_id}")
@@ -114,7 +114,7 @@ class GenerationForm(QWidget):
             if products:
                 latest_product = products[-1]
                 logger.debug(f"Displaying latest product with file: {latest_product.file_path}")
-                self.output_display.display_image(latest_product.file_path)
+                self.output_display.display_product(latest_product.file_path)
             
             self.current_prediction_id = None
         except Exception as e:

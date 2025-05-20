@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QPushButton
 from PyQt6.QtCore import Qt, QTimer
 
 
@@ -16,8 +16,12 @@ def qapp():
         app.setApplicationName("Imagen Desktop Testing")
         app.setOrganizationName("Imagen")
     
-    # Disable animations for testing
-    app.setAttribute(Qt.ApplicationAttribute.AA_DisableWindowContextHelpButton)
+    # Disable animations for testing - PyQt6 attribute name may vary by version, try available attributes
+    try:
+        app.setAttribute(Qt.ApplicationAttribute.AA_DisableWindowContextHelpButton)
+    except AttributeError:
+        # For newer PyQt6 versions, this attribute might have a different name or not be needed
+        pass
     
     # Don't actually show windows during testing
     os.environ['QT_QPA_PLATFORM'] = 'offscreen'
