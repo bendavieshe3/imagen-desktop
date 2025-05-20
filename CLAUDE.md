@@ -55,15 +55,18 @@ The technology architecture of the product is described in more detail in [techn
 ## Development Workflow
 
 Follow instructions detailed in the [workflows.md](./.claude/way-of-work/workflows.md)
+u/.claude/way-of-work/workflows.md
 
 General rules
 - Always create a plan for changes to source code
 - Always ensure test coverage and that tests pass before pushing to Github
 - Always update impacted tests and documentation when making changes
 
+
+
+
 See [Tests README](./tests/README.md) for detailed testing guidelines and 
 [TDD Guide](./docs/test_driven_development.md) for specific patterns and examples.
-
 
 ## Cost Considerations
 This application connects to Replicate's API for generating images. Please be aware:

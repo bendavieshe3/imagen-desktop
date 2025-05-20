@@ -80,31 +80,27 @@ Prompt the user to provide sufficient information to complete the relevant issue
   - See the [bug report](../../.github/ISSUE_TEMPLATE/bug_report.md) or [feature request](../../.github/ISSUE_TEMPLATE/feature_request.md) templates for suggested detail
 
 
+## Review the Product Design Documents
+Review the product design to ensure it is fit for purpose
+1. Read the [vision](../../docs/vision.md)
+2. Read the [features](../../docs/features.md)
+3. Read the [concepts](../../docs/concepts.md)
+4. Provide critical feedback on the product design in these files, to keep them concise, orthogonal and expressive:
+   - find contradictions, if any
+   - identify ambuiguity
+5. Offer to ask the user questions to resolve and to update as the files as required based on the answers
+
+
 ## Review the Backlog
 Review the current backlog of GitHub issues and tasks in other_tasks.md:
 
+1. Review the design (see Review the Design)
+   - if there are critical issues or inconsistences, stop.
+
 1. List all open GitHub issues
    - Use `gh issue list --state open` to view all open issues
-   - Sort by priority, age, or milestone as needed
+   - Sort by priority, age, or milestone as needed  
    - Check if any issues need more detail (see Elaborate an Issue)
-
-2. Review tasks in docs/other_tasks.md
-   - Identify high-priority tasks not yet in GitHub
-   - Consider converting important tasks to GitHub issues
-
-3. Present a summary to the user
-   - Number of open issues
-   - Key themes or categories of issues
-   - Suggested focus areas based on priority and dependencies
-
-## Build the Backlog
-Create and organize GitHub issues for future development:
-
-1. Create issues for items in docs/other_tasks.md
-   - For each task, create a new GitHub issue with appropriate detail
-   - Follow the feature request or bug report template
-   - Assign appropriate labels (enhancement, bug, documentation, etc.)
-   - Add to milestone if applicable
 
 2. Organize existing issues
    - Add labels for categorization
@@ -113,10 +109,34 @@ Create and organize GitHub issues for future development:
    - Break large issues into smaller, actionable tasks
    - Add dependencies between issues if needed
 
+2. Review tasks in docs/other_tasks.md
+   - 
+   - Identify high-priority tasks not yet in GitHub
+   - Consider converting important tasks to GitHub issues
+     - 
+     - Remove any items from other_tasks.md that have been migrated
+
+3. Present a summary to the user
+   - Number of open issues
+   - Key themes or categories of issues
+   - Suggested focus areas based on priority and dependencies
+
+
+## Build the Backlog
+Create and organize GitHub issues for future development:
+
+1. Create issues for items in docs/other_tasks.md
+   - For each task, create a new GitHub issue with appropriate detail (see ELaborate an Issue)
+   - Follow the feature request or bug report template
+   - Assign appropriate labels (enhancement, bug, documentation, etc.)
+   - Add to milestone if applicable
+
+
 3. Clean up backlog
    - Close completed or redundant issues
    - Update outdated issues
    - Merge duplicate issues
+
 
 
 
