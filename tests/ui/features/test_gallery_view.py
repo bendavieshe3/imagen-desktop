@@ -16,39 +16,61 @@ from imagen_desktop.core.models.product import Product
 @pytest.fixture
 def sample_products():
     """Create sample product data for testing."""
+    from pathlib import Path
+    from datetime import datetime
+    from imagen_desktop.core.models.product import ProductType
+    
     return [
         Product(
-            id="product1",
-            name="Mountain Landscape",
-            description="A beautiful mountain landscape",
+            id=1,
+            file_path=Path("/path/to/product1.png"),
+            product_type=ProductType.IMAGE,
+            generation_id="gen1",
+            created_at=datetime.fromisoformat("2025-05-17T12:00:00"),
+            width=512,
+            height=512,
+            format="png",
+            file_size=1024000,
             metadata={
                 "prompt": "A beautiful mountain landscape",
                 "model": "model1",
-                "created_at": "2025-05-17T12:00:00Z"
-            },
-            file_path="/path/to/image1.png"
+                "name": "Mountain Landscape",
+                "description": "A beautiful mountain landscape"
+            }
         ),
         Product(
-            id="product2",
-            name="Ocean Sunset",
-            description="Sunset over the ocean",
+            id=2,
+            file_path=Path("/path/to/product2.png"),
+            product_type=ProductType.IMAGE,
+            generation_id="gen2",
+            created_at=datetime.fromisoformat("2025-05-17T13:00:00"),
+            width=512,
+            height=512,
+            format="png",
+            file_size=1024000,
             metadata={
                 "prompt": "Sunset over the ocean",
                 "model": "model1",
-                "created_at": "2025-05-17T13:00:00Z"
-            },
-            file_path="/path/to/image2.png"
+                "name": "Ocean Sunset",
+                "description": "Sunset over the ocean"
+            }
         ),
         Product(
-            id="product3",
-            name="Forest Path",
-            description="A path through a dense forest",
+            id=3,
+            file_path=Path("/path/to/product3.png"),
+            product_type=ProductType.IMAGE,
+            generation_id="gen3",
+            created_at=datetime.fromisoformat("2025-05-17T14:00:00"),
+            width=512,
+            height=512,
+            format="png",
+            file_size=1024000,
             metadata={
                 "prompt": "A path through a dense forest",
                 "model": "model2",
-                "created_at": "2025-05-17T14:00:00Z"
-            },
-            file_path="/path/to/image3.png"
+                "name": "Forest Path",
+                "description": "A path through a dense forest"
+            }
         )
     ]
 
@@ -64,7 +86,7 @@ def test_gallery_view_initialization(qtbot, mocker, sample_products):
     mocker.patch.object(QPixmap, "load", return_value=True)
     
     # Create the gallery view
-    gallery_view = GalleryView()
+    gallery_view = GalleryView(product_repository=mock_repo)
     qtbot.addWidget(gallery_view)
     
     # Check that both display modes are available
@@ -90,7 +112,7 @@ def test_gallery_view_switching(qtbot, mocker, sample_products):
     mocker.patch.object(QPixmap, "load", return_value=True)
     
     # Create the gallery view
-    gallery_view = GalleryView()
+    gallery_view = GalleryView(product_repository=mock_repo)
     qtbot.addWidget(gallery_view)
     
     # Get the display mode buttons
@@ -144,7 +166,7 @@ def test_product_context_menu(qtbot, mocker, sample_products):
     mock_menu.exec.return_value = None
     
     # Create the gallery view
-    gallery_view = GalleryView()
+    gallery_view = GalleryView(product_repository=mock_repo)
     qtbot.addWidget(gallery_view)
     
     # Wait for the view to load products
@@ -172,7 +194,7 @@ def test_product_selection(qtbot, mocker, sample_products):
     mocker.patch.object(QPixmap, "load", return_value=True)
     
     # Create the gallery view
-    gallery_view = GalleryView()
+    gallery_view = GalleryView(product_repository=mock_repo)
     qtbot.addWidget(gallery_view)
     
     # Wait for the view to load products
@@ -200,7 +222,7 @@ def test_gallery_filtering(qtbot, mocker, sample_products):
     mocker.patch.object(QPixmap, "load", return_value=True)
     
     # Create the gallery view
-    gallery_view = GalleryView()
+    gallery_view = GalleryView(product_repository=mock_repo)
     qtbot.addWidget(gallery_view)
     
     # Find the search box

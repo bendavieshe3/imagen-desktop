@@ -41,7 +41,7 @@ class OutputDisplay(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.current_image: Optional[Path] = None
+        self.current_product: Optional[Path] = None
         self._init_ui()
     
     def _init_ui(self):
@@ -49,10 +49,10 @@ class OutputDisplay(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Main image display
-        self.image_frame = QFrame()
-        self.image_frame.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.image_frame.setStyleSheet("""
+        # Main product display
+        self.product_frame = QFrame()
+        self.product_frame.setFrameStyle(QFrame.Shape.StyledPanel)
+        self.product_frame.setStyleSheet("""
             QFrame {
                 background-color: #f0f0f0;
                 border: 1px solid #ccc;
@@ -60,25 +60,25 @@ class OutputDisplay(QWidget):
             }
         """)
         
-        # Use stacked layout for image and progress overlay
-        self.stack = QStackedLayout(self.image_frame)
+        # Use stacked layout for product and progress overlay
+        self.stack = QStackedLayout(self.product_frame)
         
-        # Image container
-        image_container = QWidget()
-        image_layout = QVBoxLayout(image_container)
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image_layout.addWidget(self.image_label)
+        # Product container
+        product_container = QWidget()
+        product_layout = QVBoxLayout(product_container)
+        self.product_label = QLabel()
+        self.product_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        product_layout.addWidget(self.product_label)
         
         # Progress overlay
         self.progress_overlay = OverlayProgressBar()
         self.progress_overlay.hide()
         
         # Add both to stacked layout
-        self.stack.addWidget(image_container)
+        self.stack.addWidget(product_container)
         self.stack.addWidget(self.progress_overlay)
         
-        layout.addWidget(self.image_frame)
+        layout.addWidget(self.product_frame)
         
         # Status label at bottom
         self.status_label = QLabel()
@@ -99,23 +99,23 @@ class OutputDisplay(QWidget):
         """Update the status text."""
         self.status_label.setText(text)
     
-    def display_image(self, image_path: Optional[Path]):
-        """Display an image or clear if None."""
-        self.current_image = image_path
+    def display_product(self, product_path: Optional[Path]):
+        """Display a product image or clear if None."""
+        self.current_product = product_path
         
-        if image_path and image_path.exists():
-            pixmap = QPixmap(str(image_path))
+        if product_path and product_path.exists():
+            pixmap = QPixmap(str(product_path))
             scaled_pixmap = pixmap.scaled(
-                self.image_frame.size(),
+                self.product_frame.size(),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
-            self.image_label.setPixmap(scaled_pixmap)
+            self.product_label.setPixmap(scaled_pixmap)
         else:
-            self.image_label.clear()
+            self.product_label.clear()
     
     def resizeEvent(self, event):
-        """Handle resize events to scale image."""
+        """Handle resize events to scale the displayed product."""
         super().resizeEvent(event)
-        if self.current_image:
-            self.display_image(self.current_image)
+        if self.current_product:
+            self.display_product(self.current_product)
