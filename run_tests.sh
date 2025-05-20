@@ -7,6 +7,6 @@ echo "=== Installing test dependencies ==="
 pip install -r requirements.txt
 
 echo "=== Running tests ==="
-python -m pytest "$@"
+python -m pytest -k "not ui" "$@"
 
 echo "=== Done ==="

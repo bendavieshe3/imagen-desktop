@@ -90,7 +90,6 @@ Review the product design to ensure it is fit for purpose
    - identify ambuiguity
 5. Offer to ask the user questions to resolve and to update as the files as required based on the answers
 
-
 ## Review the Backlog
 Review the current backlog of GitHub issues and tasks in other_tasks.md:
 

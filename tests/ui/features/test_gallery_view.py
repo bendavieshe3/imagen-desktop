@@ -1,9 +1,9 @@
 """Tests for the gallery view UI flow."""
 
 import pytest
-from PyQt6.QtWidgets import QLabel, QMenu, QAction
+from PyQt6.QtWidgets import QLabel, QMenu, QPushButton, QLineEdit
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QAction
 
 from imagen_desktop.ui.features.gallery.gallery_view import GalleryView
 from imagen_desktop.ui.features.gallery.widgets.product_grid import ProductGrid

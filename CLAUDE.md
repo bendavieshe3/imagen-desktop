@@ -52,16 +52,37 @@ The technology architecture of the product is described in more detail in [techn
   - `/commands/` - Commands available in the Claude Code CLI
   - `/way-of-work/` - Instructions and elaborations for Claude Code
 
+setup: `./run_tests.sh`
+
 ## Development Workflow
 
 Follow instructions detailed in the [workflows.md](./.claude/way-of-work/workflows.md)
-u/.claude/way-of-work/workflows.md
+@/.claude/way-of-work/workflows.md
 
 General rules
 - Always create a plan for changes to source code
 - Always ensure test coverage and that tests pass before pushing to Github
 - Always update impacted tests and documentation when making changes
 
+## Source Control Workflow
+
+### GitHub Flow
+@./docs/github_workflow.md
+
+## Testing
+
+We follow test-driven development (TDD) principles:
+1. Write failing tests first
+2. Implement the minimum code to make tests pass
+3. Refactor for clarity and maintainability
+
+## Coding Standards
+
+- Follow PEP 8 for Python code style
+- Use meaningful variable and function names
+- Document classes, functions, and modules with docstrings
+- Keep functions small and focused
+- Write unit tests for new code
 
 
 

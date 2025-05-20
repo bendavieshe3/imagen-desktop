@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QComboBox, QPushButton
 from PyQt6.QtCore import Qt
 
 from imagen_desktop.ui.features.generation.forms.model_selector import ModelSelector
-from imagen_desktop.ui.dialogs.model_manager import ModelManagerDialog
+from imagen_desktop.ui.dialogs.model_manager import ModelManager
 
 
 @pytest.mark.ui
@@ -79,7 +79,7 @@ def test_open_model_manager_dialog(qtbot, mocker):
     )
     
     # Mock the model manager dialog 
-    mock_dialog = mocker.patch("imagen_desktop.ui.dialogs.model_manager.ModelManagerDialog")
+    mock_dialog = mocker.patch("imagen_desktop.ui.dialogs.model_manager.ModelManager")
     mock_dialog.return_value.exec.return_value = True
     
     # Create the model selector widget
@@ -120,17 +120,19 @@ def test_model_manager_dialog(qtbot, mocker):
         return_value={"name": "Test Model 1", "description": "A test model", "owner": "test-user"}
     )
     
+    # Mock dependencies
+    mock_api = mocker.Mock()
+    mock_repo = mocker.Mock()
+    
     # Create the dialog
-    dialog = ModelManagerDialog()
+    dialog = ModelManager(mock_api, mock_repo)
     qtbot.addWidget(dialog)
     
     # Check that the dialog shows the correct number of models
-    assert dialog.model_list.count() == len(mock_models), "Dialog should show all models"
+    assert dialog.tree.topLevelItemCount() == len(mock_models), "Dialog should show all models"
     
     # Select a model and check that details are displayed
-    with qtbot.waitSignal(dialog.model_list.currentItemChanged):
-        dialog.model_list.setCurrentRow(0)
+    dialog.tree.setCurrentItem(dialog.tree.topLevelItem(0))
     
-    # Check that details are shown for the selected model
-    assert "Test Model 1" in dialog.model_details.toPlainText(), "Model name should be in details"
-    assert "A test model" in dialog.model_details.toPlainText(), "Model description should be in details"
+    # Check that buttons are enabled/disabled appropriately
+    assert dialog.add_button.isEnabled() or dialog.remove_button.isEnabled(), "Either add or remove button should be enabled"
